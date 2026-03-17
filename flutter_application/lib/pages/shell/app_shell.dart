@@ -24,7 +24,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const HomePage(),
+      const HomeScreen(),
       const ProgressPage(),
       ProfilePage(
         onLogout: () {
@@ -37,7 +37,9 @@ class _AppShellState extends State<AppShell> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_selectedIndex])),
+      appBar: _selectedIndex == 0
+    ? null // no AppBar for Home
+    : AppBar(title: Text(_titles[_selectedIndex])),
       body: IndexedStack(
         index: _selectedIndex,
         children: pages,
