@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/user_profile_store.dart';
 
-const String _currentUser = 'Alex';
-
-const List<Map<String, dynamic>> _leaderboard = [
-  {'name': 'Jordan', 'xp': 1340},
-  {'name': 'Alex', 'xp': 980},
-  {'name': 'Sam', 'xp': 760},
-];
+List<Map<String, dynamic>> _leaderboardFor(String currentUser) => [
+      {'name': 'Jordan', 'xp': 1340},
+      {'name': currentUser, 'xp': 980},
+      {'name': 'Sam', 'xp': 760},
+    ];
 
 const int _userXP = 980;
 const int _householdXP = 3080;
 const int _streakWeeks = 4;
 const double _weeklyProgress = 0.67;
 
-const String _feedback =
-    'Great job this week, Alex! You\'re leading in dish duty and took out the trash twice. '
+String _feedbackFor(String currentUser) =>
+    'Great job this week, $currentUser! You\'re leading in dish duty and took out the trash twice. '
     'Keep it up to close the gap with Jordan!';
 
 const List<Map<String, dynamic>> _achievements = [
@@ -50,6 +49,10 @@ class ProgressPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = UserProfileStore.name.value;
+    final leaderboard = _leaderboardFor(currentUser);
+    final feedback = _feedbackFor(currentUser);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -76,7 +79,7 @@ class ProgressPage extends StatelessWidget {
                                 children: [
                                   const Icon(
                                     Icons.local_fire_department,
-                                    size: 28,
+                                    size: 35,
                                     color: Colors.orange,
                                   ),
                                   const SizedBox(width: 4),
@@ -135,7 +138,10 @@ class ProgressPage extends StatelessWidget {
                     const SizedBox(height: 20),
 
                     // Podium
-                    const _PodiumWidget(),
+                    _PodiumWidget(
+                      leaderboard: leaderboard,
+                      currentUser: currentUser,
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -217,10 +223,10 @@ class ProgressPage extends StatelessWidget {
                         border: Border.all(color: Colors.black26, width: 1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        _feedback,
+                      child: Text(
+                        feedback,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                        style: const TextStyle(fontSize: 13, color: Colors.black87),
                       ),
                     ),
 
@@ -259,7 +265,13 @@ class ProgressPage extends StatelessWidget {
 }
 
 class _PodiumWidget extends StatelessWidget {
-  const _PodiumWidget();
+  const _PodiumWidget({
+    required this.leaderboard,
+    required this.currentUser,
+  });
+
+  final List<Map<String, dynamic>> leaderboard;
+  final String currentUser;
 
   @override
   Widget build(BuildContext context) {
@@ -272,25 +284,25 @@ class _PodiumWidget extends StatelessWidget {
           _PodiumBlock(
             rank: 2,
             height: 80,
-            name: _leaderboard[1]['name'] as String,
-            xp: _leaderboard[1]['xp'] as int,
-            isCurrentUser: _leaderboard[1]['name'] == _currentUser,
+            name: leaderboard[1]['name'] as String,
+            xp: leaderboard[1]['xp'] as int,
+            isCurrentUser: leaderboard[1]['name'] == currentUser,
           ),
           const SizedBox(width: 4),
           _PodiumBlock(
             rank: 1,
             height: 110,
-            name: _leaderboard[0]['name'] as String,
-            xp: _leaderboard[0]['xp'] as int,
-            isCurrentUser: _leaderboard[0]['name'] == _currentUser,
+            name: leaderboard[0]['name'] as String,
+            xp: leaderboard[0]['xp'] as int,
+            isCurrentUser: leaderboard[0]['name'] == currentUser,
           ),
           const SizedBox(width: 4),
           _PodiumBlock(
             rank: 3,
             height: 60,
-            name: _leaderboard[2]['name'] as String,
-            xp: _leaderboard[2]['xp'] as int,
-            isCurrentUser: _leaderboard[2]['name'] == _currentUser,
+            name: leaderboard[2]['name'] as String,
+            xp: leaderboard[2]['xp'] as int,
+            isCurrentUser: leaderboard[2]['name'] == currentUser,
           ),
         ],
       ),

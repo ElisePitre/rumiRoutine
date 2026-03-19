@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/user_profile_store.dart';
 
 class EditChoreScreen extends StatefulWidget {
   /// Pass the existing chore map from the home screen.
@@ -23,15 +24,12 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
   late final TextEditingController titleController;
   late final TextEditingController dueDateController;
   late final TextEditingController xpController;
-  late final TextEditingController descriptionController;
 
   String? selectedRoommate;
   bool isRecurring = false;
   bool isRotation  = false;
 
-  final List<String> roommates = [
-    'Alex', 'Sam', 'Jordan', 'Silvia', 'Caitlin'
-  ];
+  List<String> get roommates => UserProfileStore.householdMembers.value;
 
   @override
   void initState() {
@@ -40,7 +38,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
 
     titleController       = TextEditingController(text: c?['name'] ?? '');
     xpController          = TextEditingController(text: c?['xp']?.toString() ?? '');
-    descriptionController = TextEditingController(text: c?['description'] ?? '');
     isRecurring           = c?['recurring'] ?? false;
     isRotation            = c?['rotation']  ?? false;
 
@@ -65,7 +62,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
     titleController.dispose();
     dueDateController.dispose();
     xpController.dispose();
-    descriptionController.dispose();
     super.dispose();
   }
 
@@ -102,7 +98,7 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
         'xp':          int.tryParse(xpController.text) ?? 0,
         'completed':   widget.chore?['completed'] ?? false,
         'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
-        'description': descriptionController.text,
+        'description': widget.chore?['description'] ?? '',
         'recurring':   isRecurring,
         'rotation':    isRotation,
       };
@@ -199,8 +195,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
                         ),
                         const SizedBox(height: 10),
                         buildRoommateDropdown(),
-                        const SizedBox(height: 10),
-                        buildDescriptionField(),
                         const SizedBox(height: 16),
 
                         // ── Recurring? / Rotation? toggles ─────────
@@ -277,23 +271,41 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
               alignment: Alignment.topLeft,
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.local_fire_department,
-                      size: 28,
-                      color: Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    ValueListenableBuilder<int>(
-                      valueListenable: StreakStore.count,
-                      builder: (context, streak, _) => Text(
-                        '$streak',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department,
+                          size: 35,
+                          color: Colors.orange,
                         ),
+                        const SizedBox(width: 4),
+                        ValueListenableBuilder<int>(
+                          valueListenable: StreakStore.count,
+                          builder: (context, streak, _) => Text(
+                            '$streak',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Back to home',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        size: 24,
+                        color: Colors.black,
                       ),
                     ),
                   ],
@@ -390,17 +402,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
           .toList(),
       onChanged: (val) => setState(() => selectedRoommate = val),
       validator: (v) => v == null ? 'Required' : null,
-    );
-  }
-
-  Widget buildDescriptionField() {
-    return TextFormField(
-      controller: descriptionController,
-      maxLines: 4,
-      style: const TextStyle(fontSize: 14, color: Colors.black),
-      decoration: inputDecoration('Description').copyWith(
-        contentPadding: const EdgeInsets.all(14),
-      ),
     );
   }
 

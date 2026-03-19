@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/user_profile_store.dart';
 
 class AddChoreScreen extends StatefulWidget {
   final VoidCallback? onRumiTap;
@@ -17,22 +18,18 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
   final titleController       = TextEditingController();
   final dueDateController     = TextEditingController();
   final xpController          = TextEditingController();
-  final descriptionController = TextEditingController();
 
   String? selectedRoommate;
   bool isRecurring = false;
   bool isRotation  = false;
 
-  final List<String> roommates = [
-    'Alex', 'Sam', 'Jordan', 'Silvia', 'Caitlin'
-  ];
+  List<String> get roommates => UserProfileStore.householdMembers.value;
 
   @override
   void dispose() {
     titleController.dispose();
     dueDateController.dispose();
     xpController.dispose();
-    descriptionController.dispose();
     super.dispose();
   }
 
@@ -67,7 +64,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
         'xp':          int.tryParse(xpController.text) ?? 0,
         'completed':   false,
         'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
-        'description': descriptionController.text,
+        'description': '',
         'recurring':   isRecurring,
         'rotation':    isRotation,
       };
@@ -133,8 +130,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                         ),
                         const SizedBox(height: 10),
                         buildRoommateDropdown(),
-                        const SizedBox(height: 10),
-                        buildDescriptionField(),
                         const SizedBox(height: 16),
 
                         // ── Recurring? / Rotation? toggles ─────────
@@ -212,23 +207,41 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
               alignment: Alignment.topLeft,
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.local_fire_department,
-                      size: 28,
-                      color: Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    ValueListenableBuilder<int>(
-                      valueListenable: StreakStore.count,
-                      builder: (context, streak, _) => Text(
-                        '$streak',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department,
+                          size: 35,
+                          color: Colors.orange,
                         ),
+                        const SizedBox(width: 4),
+                        ValueListenableBuilder<int>(
+                          valueListenable: StreakStore.count,
+                          builder: (context, streak, _) => Text(
+                            '$streak',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Back to home',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        size: 24,
+                        color: Colors.black,
                       ),
                     ),
                   ],
@@ -324,17 +337,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
           .toList(),
       onChanged: (val) => setState(() => selectedRoommate = val),
       validator: (v) => v == null ? 'Required' : null,
-    );
-  }
-
-  Widget buildDescriptionField() {
-    return TextFormField(
-      controller: descriptionController,
-      maxLines: 4,
-      style: const TextStyle(fontSize: 14, color: Colors.black),
-      decoration: inputDecoration('Description').copyWith(
-        contentPadding: const EdgeInsets.all(14),
-      ),
     );
   }
 

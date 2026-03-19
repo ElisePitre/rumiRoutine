@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/rumi_background_store.dart';
 
 class RumiPage extends StatefulWidget {
   const RumiPage({
@@ -19,6 +20,14 @@ class RumiPage extends StatefulWidget {
 class _RumiPageState extends State<RumiPage> {
   bool _showAccessories = true;
 
+  String get _formattedEmotion {
+    if (widget.currentEmotion.isEmpty) {
+      return 'Unknown';
+    }
+    return widget.currentEmotion[0].toUpperCase() +
+        widget.currentEmotion.substring(1);
+  }
+
   final List<Map<String, Object>> _accessories = const [
     {
       'key': 'flatHat',
@@ -31,7 +40,7 @@ class _RumiPageState extends State<RumiPage> {
       'key': 'witchHat',
       'name': 'witchHat.png',
       'xp': 100,
-      'unlocked': false,
+      'unlocked': true,
       'previewAsset': 'assets/witchHat.png',},
     {'key': 'sunglasses', 'name': 'Sunglasses', 'xp': 200, 'unlocked': false},
     {'key': 'scarf', 'name': 'Scarf', 'xp': 300, 'unlocked': false},
@@ -39,12 +48,60 @@ class _RumiPageState extends State<RumiPage> {
   ];
 
   final List<Map<String, Object>> _backgrounds = const [
-    {'name': 'Pink', 'xp': 50, 'unlocked': true},
-    {'name': 'Blue', 'xp': 100, 'unlocked': false},
-    {'name': 'Green', 'xp': 200, 'unlocked': false},
-    {'name': 'Yellow', 'xp': 300, 'unlocked': false},
-    {'name': 'Purple', 'xp': 500, 'unlocked': false},
+    {
+      'key': 'sunny',
+      'name': 'Sunny Sky',
+      'xp': 50,
+      'unlocked': true,
+      'preview': Color(0xFFEAF4FF),
+      'color': Color(0xFFEAF4FF),
+    },
+    {
+      'key': 'mint',
+      'name': 'Mint Garden',
+      'xp': 120,
+      'unlocked': false,
+      'preview': Color(0xFFDDF6E8),
+      'color': Color(0xFFDDF6E8),
+    },
+    {
+      'key': 'sunset',
+      'name': 'Sunset Glow',
+      'xp': 220,
+      'unlocked': false,
+      'preview': Color(0xFFFFE5D6),
+      'gradient': <Color>[Color(0xFFFFE5D6), Color(0xFFFFC8B2)],
+    },
+    {
+      'key': 'aurora',
+      'name': 'Aurora Night',
+      'xp': 360,
+      'unlocked': false,
+      'preview': Color(0xFFE7E1FF),
+      'gradient': <Color>[Color(0xFFD4CCFF), Color(0xFFB2F1FF)],
+    },
+    {
+      'key': 'galaxy',
+      'name': 'Galaxy Party',
+      'xp': 520,
+      'unlocked': false,
+      'preview': Color(0xFF2A2440),
+      'gradient': <Color>[Color(0xFF2A2440), Color(0xFF5B3A8A)],
+    },
   ];
+
+  Map<String, Object>? _currentBackgroundConfig(String? key) {
+    if (key == null) {
+      return null;
+    }
+
+    for (final item in _backgrounds) {
+      if (item['key'] == key) {
+        return item;
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +127,7 @@ class _RumiPageState extends State<RumiPage> {
                           children: [
                             const Icon(
                               Icons.local_fire_department,
-                              size: 28,
+                              size: 35,
                               color: Colors.orange,
                             ),
                             const SizedBox(width: 4),
@@ -105,30 +162,50 @@ class _RumiPageState extends State<RumiPage> {
               ),
               const SizedBox(height: 16),
               Center(
-                child: Container(
-                  width: 240,
-                  height: 240,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: ValueListenableBuilder<String?>(
-                      valueListenable: RumiAccessoryStore.selectedAccessory,
-                      builder: (context, _, __) => Image.asset(
-                        RumiAccessoryStore.currentRumiImagePath,
-                        width: 180,
-                        height: 180,
-                        fit: BoxFit.contain,
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: RumiBackgroundStore.selectedBackground,
+                  builder: (context, selectedBackground, __) {
+                    final backgroundConfig =
+                        _currentBackgroundConfig(selectedBackground);
+                    final backgroundColor =
+                        backgroundConfig?['color'] as Color? ?? Colors.white;
+                    final gradientColors =
+                        backgroundConfig?['gradient'] as List<Color>?;
+
+                    return Container(
+                      width: 240,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        color: gradientColors == null ? backgroundColor : null,
+                        gradient: gradientColors == null
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: gradientColors,
+                              ),
+                        border: Border.all(color: Colors.black, width: 2),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                  ),
+                      child: Center(
+                        child: ValueListenableBuilder<String?>(
+                          valueListenable: RumiAccessoryStore.selectedAccessory,
+                          builder: (context, _, __) => Image.asset(
+                            RumiAccessoryStore.currentRumiImagePath,
+                            width: 180,
+                            height: 180,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 24),
               Center(
                 child: Text(
-                  'Rumi is currently ${widget.currentEmotion}',
+                  'Emotion: $_formattedEmotion',
                   style: const TextStyle(fontSize: 18),
                 ),
               ),
@@ -265,40 +342,92 @@ class _RumiPageState extends State<RumiPage> {
                   child: Row(
                     children: _backgrounds.map((item) {
                       final unlocked = item['unlocked'] as bool;
+                      final backgroundKey = item['key'] as String;
                       final name = item['name'] as String;
                       final xp = item['xp'] as int;
+                      final previewColor = item['preview'] as Color;
 
                       return Padding(
                         padding: const EdgeInsets.only(right: 14, bottom: 18),
                         child: Column(
                           children: [
-                            Container(
-                              width: 140,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                color: unlocked ? Colors.white : Colors.grey.shade300,
-                                border: Border.all(color: Colors.black, width: 3),
-                                borderRadius: BorderRadius.circular(40),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10),
-                                      child: Text(
-                                        unlocked ? name : '<locked_$name>',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          color: unlocked ? Colors.black : Colors.grey,
-                                        ),
+                            ValueListenableBuilder<String?>(
+                              valueListenable: RumiBackgroundStore.selectedBackground,
+                              builder: (context, selectedBackground, _) {
+                                final isSelected =
+                                    unlocked && selectedBackground == backgroundKey;
+
+                                return InkWell(
+                                  onTap: unlocked
+                                      ? () {
+                                          RumiBackgroundStore.toggleBackground(
+                                            backgroundKey,
+                                          );
+                                        }
+                                      : null,
+                                  borderRadius: BorderRadius.circular(40),
+                                  child: Container(
+                                    width: 140,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: unlocked
+                                          ? (isSelected
+                                              ? Colors.orange.shade100
+                                              : Colors.white)
+                                          : Colors.grey.shade300,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? Colors.orange
+                                            : Colors.black,
+                                        width: isSelected ? 4 : 3,
                                       ),
+                                      borderRadius: BorderRadius.circular(40),
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                            ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 64,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    color: previewColor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: Colors.black,
+                                                      width: 1.2,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  unlocked ? name : '<locked_$name>',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    color: unlocked
+                                                        ? Colors.black
+                                                        : Colors.grey,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        if (!unlocked) _buildLockedStripesOverlay(),
+                                      ],
                                     ),
                                   ),
-                                  if (!unlocked) _buildLockedStripesOverlay(),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 8),
                             Text(

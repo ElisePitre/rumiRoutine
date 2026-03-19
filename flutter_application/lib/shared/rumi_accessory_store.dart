@@ -7,6 +7,8 @@ class RumiAccessoryStore {
     switch (selectedAccessory.value) {
       case 'flatHat':
         return 'assets/rumiNormalFlatHat.png';
+      case 'witchHat':
+        return 'assets/rumiNormalWitchHat.png';
       default:
         return 'assets/rumiNormalNoHat.png';
     }

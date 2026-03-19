@@ -3,6 +3,7 @@ import '../home/add_chore.dart';
 import '../home/edit_chore.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/user_profile_store.dart';
 
 enum CategoryType {
     completed,  
@@ -18,7 +19,7 @@ final List<Map<String, String>> overdueChores = [
 List<Map<String, dynamic>> chores = [
   {
     'name': 'Wash dishes',
-    'assigned': 'User',
+    'assigned': UserProfileStore.name.value,
     'xp': 20,
     'completed': false,
     'dueDate': DateTime.now().add(const Duration(days: 1)),
@@ -105,7 +106,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     } 
     else {
-      return chores.where((c) => c['assigned'] == 'User').toList();
+      return chores
+          .where((c) => c['assigned'] == UserProfileStore.name.value)
+          .toList();
     }
   }
   Widget getOverdueChoresUI() {
@@ -219,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const Icon(
                       Icons.local_fire_department,
-                      size: 28,
+                      size: 35,
                       color: Colors.orange,
                     ),
                     const SizedBox(width: 4),
@@ -272,14 +275,17 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  'Hello User!',
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 25,
-                    letterSpacing: 0.2,
-                    color: Colors.grey,
+                ValueListenableBuilder<String>(
+                  valueListenable: UserProfileStore.name,
+                  builder: (context, profileName, _) => Text(
+                    'Hello $profileName!',
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w400,
+                      fontSize: 25,
+                      letterSpacing: 0.2,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
                 Text(
