@@ -201,26 +201,27 @@ class _LoginPageState extends State<LoginPage> {
                       obscureText: true,
                     ),
                     ),
-                    Padding(
-                    padding: const EdgeInsets.only(bottom: 22),
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        fixedSize: Size(230,45),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AppShell(),
-                          ),
-                        );
-                      },
-                      child: const Text('Create a New Household'), //TODO: where to go after new household??
-                      ),
-                    ),
+                    // Padding(
+                    // padding: const EdgeInsets.only(bottom: 22),
+                    // child: FilledButton(
+                    //   style: FilledButton.styleFrom(
+                    //     backgroundColor: Colors.black,
+                    //     foregroundColor: Colors.white,
+                    //     fixedSize: Size(230,45),
+                    //   ),
+                    //   onPressed: () {
+                    //     Navigator.of(context).pushReplacement(
+                    //       MaterialPageRoute<void>(
+                    //         builder: (_) => const AppShell(),
+                    //       ),
+                    //     );
+                    //   },
+                    //   child: const Text('Create a New Household'), //TODO: where to go after new household??
+                    //   ),
+                    // ),
                     const Text(
-                      'Already have a household?',
+                      textAlign: TextAlign.center,
+                        'Enter a code to join an existing household, or one will be assigned to you',
                       style: TextStyle(
                         color: Colors.grey,
                       ),
