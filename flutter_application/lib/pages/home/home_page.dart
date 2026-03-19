@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddChoreScreen(),
+                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap),
               ),
             );
           },
@@ -313,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => EditChoreScreen(),
+                builder: (context) => EditChoreScreen(onRumiTap: widget.onRumiTap),
               ),
             );
           },
