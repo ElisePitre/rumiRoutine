@@ -4,6 +4,7 @@ import '../auth/login_page.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../progress/progress_page.dart';
+import '../rumi/rumi_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -14,19 +15,32 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
-
-  static const List<String> _titles = [
-    'Home',
-    'Progress',
-    'Profile',
-  ];
+  int _rumiAgeDays = 7;
+  String _rumiEmotion = 'normal';
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const HomeScreen(),
-      const ProgressPage(),
+      HomeScreen(
+        onRumiTap: () {
+          setState(() {
+            _selectedIndex = 3;
+          });
+        },
+      ),
+      ProgressPage(
+        onRumiTap: () {
+          setState(() {
+            _selectedIndex = 3;
+          });
+        },
+      ),
       ProfilePage(
+        onRumiTap: () {
+          setState(() {
+            _selectedIndex = 3;
+          });
+        },
         onLogout: () {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute<void>(builder: (_) => const LoginPage()),
@@ -34,12 +48,13 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
+      RumiPage(
+        rumiAgeDays: _rumiAgeDays,
+        currentEmotion: _rumiEmotion,
+      ),
     ];
 
     return Scaffold(
-      appBar: _selectedIndex == 0
-    ? null // no AppBar for Home
-    : AppBar(title: Text(_titles[_selectedIndex])),
       body: IndexedStack(
         index: _selectedIndex,
         children: pages,
@@ -60,6 +75,11 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
+            label: '',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outlined),
+            selectedIcon: Icon(Icons.favorite),
             label: '',
           ),
         ],
