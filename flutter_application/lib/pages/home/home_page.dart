@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../home/add_chore.dart';
 import '../home/edit_chore.dart';
+import '../../shared/streak_store.dart';
+import '../../shared/rumi_accessory_store.dart';
 
 enum CategoryType {
     completed,  
@@ -35,7 +37,9 @@ List<Map<String, dynamic>> chores = [
   },
 ];
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({Key? key, required this.onRumiTap}) : super(key: key);
+
+  final VoidCallback onRumiTap;
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -66,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
         body: SingleChildScrollView(
           child: Column(
           children: [
+            getTopIconsUI(),
             getAppBarUI(),
             getCategoryUI(),
           ],
@@ -196,9 +201,68 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
+  Widget getTopIconsUI() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, right: 12),
+      child: SizedBox(
+        height: 120,
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.local_fire_department,
+                      size: 28,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 4),
+                    ValueListenableBuilder<int>(
+                      valueListenable: StreakStore.count,
+                      builder: (context, streak, _) => Text(
+                        '$streak',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: IconButton(
+                  onPressed: widget.onRumiTap,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: ValueListenableBuilder<String?>(
+                    valueListenable: RumiAccessoryStore.selectedAccessory,
+                    builder: (context, _, __) => Image.asset(
+                      RumiAccessoryStore.currentRumiImagePath,
+                      width: 112,
+                      height: 112,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   Widget getAppBarUI() {
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0, left: 25, right: 18),
+      padding: const EdgeInsets.only(top: 0, left: 25, right: 18),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -229,12 +293,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          SizedBox(
-            width: 150,
-            height: 150,
-            // TODO: replace with (dynamic) Rumi image
-            child: Image.asset('assets/smiski1.jpg'),
-          )
         ],
       ),
     );

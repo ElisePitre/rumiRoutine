@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../shared/streak_store.dart';
+import '../../shared/rumi_accessory_store.dart';
 
 const String _currentUser = 'Alex';
 
@@ -42,50 +44,78 @@ const List<Map<String, dynamic>> _achievements = [
 ];
 
 class ProgressPage extends StatelessWidget {
-  const ProgressPage({super.key});
+  const ProgressPage({super.key, required this.onRumiTap});
+
+  final VoidCallback onRumiTap;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Top row: streak + mood icon
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.local_fire_department,
-                                color: Colors.orange, size: 22),
-                            SizedBox(width: 4),
-                            Text(
-                              '$_streakWeeks',
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
+                    // Top row: persistent icons in scroll content
+                    SizedBox(
+                      height: 120,
+                      child: Stack(
+                        children: [
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.local_fire_department,
+                                    size: 28,
+                                    color: Colors.orange,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  ValueListenableBuilder<int>(
+                                    valueListenable: StreakStore.count,
+                                    builder: (context, streak, _) => Text(
+                                      '$streak',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            border:
-                                Border.all(color: Colors.black87, width: 1.5),
-                            borderRadius: BorderRadius.circular(6),
                           ),
-                          // Todo: Needs to be changed to the rumi icon
-                          child: const Icon(Icons.mood_bad,
-                              size: 22, color: Colors.black87),
-                        ),
-                      ],
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: IconButton(
+                                onPressed: onRumiTap,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: ValueListenableBuilder<String?>(
+                                  valueListenable: RumiAccessoryStore.selectedAccessory,
+                                  builder: (context, _, __) => Image.asset(
+                                    RumiAccessoryStore.currentRumiImagePath,
+                                    width: 112,
+                                    height: 112,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 16),
