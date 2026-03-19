@@ -10,30 +10,32 @@ enum CategoryType {
     myChores,    
   }
 final List<Map<String, String>> overdueChores = [
-  {'name': 'Wash dishes', 'assigned': 'Silvia'},
-  {'name': 'Take out trash', 'assigned': 'Caitlin'},
+  {'name': 'Mop', 'assigned': 'Silvia'},
+  {'name': 'Clean sink', 'assigned': 'Caitlin'},
+  {'name': 'Clean bathroom', 'assigned': 'Elise'},
+  {'name': 'Clean kitchen', 'assigned': 'Alina'},
 ];
 List<Map<String, dynamic>> chores = [
   {
     'name': 'Wash dishes',
-    'assigned': 'Alex',
+    'assigned': 'User',
     'xp': 20,
     'completed': false,
-    'dueDate': DateTime.now(), // due today
+    'dueDate': DateTime.now().add(const Duration(days: 1)),
   },
   {
     'name': 'Take out trash',
     'assigned': 'Sam',
     'xp': 15,
-    'completed': true,
-    'dueDate': DateTime.now().add(const Duration(days: 2)), // future
+    'completed': false,
+    'dueDate': DateTime.now(), // due today
   },
   {
     'name': 'Vacuum',
     'assigned': 'Jordan',
     'xp': 25,
-    'completed': false,
-    'dueDate': DateTime.now().add(const Duration(days: 1)),
+    'completed': true,
+    'dueDate': DateTime.now().add(const Duration(days: 2)),
   },
 ];
 class HomeScreen extends StatefulWidget {
@@ -103,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     } 
     else {
-      return chores.where((c) => c['assigned'] == 'Alex').toList();
+      return chores.where((c) => c['assigned'] == 'User').toList();
     }
   }
   Widget getOverdueChoresUI() {
@@ -374,11 +376,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.black),
                   onPressed: () {
-                    setState(() {
-                      chores.remove(chore);
-                    });
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          content: const Text(
+                              "Are you sure you want to delete this chore?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  chores.remove(chore);
+                                });
+                                Navigator.of(context).pop(); 
+                              },
+                              child: const Text("Delete"),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
-                ),
+                )
               ],
             ),
           ),
