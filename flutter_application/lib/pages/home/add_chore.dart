@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
+import '../../services/firestore_service.dart';
 
 class AddChoreScreen extends StatefulWidget {
   final VoidCallback? onRumiTap;
@@ -14,6 +15,7 @@ class AddChoreScreen extends StatefulWidget {
 
 class _AddChoreScreenState extends State<AddChoreScreen> {
   final formKey = GlobalKey<FormState>();
+  final _firestoreService = FirestoreService();
 
   final titleController       = TextEditingController();
   final dueDateController     = TextEditingController();
@@ -58,20 +60,21 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
     }
   }
 
-  void _submit() {
-    if (formKey.currentState!.validate()) {
-      final newChore = {
-        'name':        titleController.text,
-        'assigned':    selectedRoommate ?? '',
-        'xp':          selectedXp ?? 0,
-        'completed':   false,
-        'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
-        'description': '',
-        'recurring':   isRecurring,
-        'rotation':    isRotation,
-      };
-      Navigator.pop(context, newChore);
-    }
+  Future<void> _submit() async {               
+    if (!formKey.currentState!.validate()) return;
+
+    final newChore = {
+      'name':      titleController.text,
+      'assigned':  selectedRoommate ?? '',
+      'xp':        selectedXp ?? 0,
+      'completed': false,
+      'dueDate':   DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
+      'recurring': isRecurring,
+      'rotation':  isRotation,
+    };
+
+    await _firestoreService.addChore(newChore);  
+    if (mounted) Navigator.pop(context);
   }
 
   @override

@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
+import '../../services/firestore_service.dart';
 
 class EditChoreScreen extends StatefulWidget {
-  /// Pass the existing chore map from the home screen.
-  /// Expected keys: 'name', 'assigned', 'xp', 'dueDate',
-  ///                'description', 'recurring', 'rotation', 'completed'
-  
   final Map<String, dynamic>? chore;
   final VoidCallback? onRumiTap;
 
@@ -20,6 +17,7 @@ class EditChoreScreen extends StatefulWidget {
 
 class _EditChoreScreenState extends State<EditChoreScreen> {
   final formKey = GlobalKey<FormState>();
+   final _firestoreService = FirestoreService();
 
   late final TextEditingController titleController;
   late final TextEditingController dueDateController;
@@ -29,6 +27,7 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
   int?    selectedXp;
   bool isRecurring = false;
   bool isRotation  = false;
+  bool _isLoading  = false;
 
   static const List<int> xpOptions = [15, 25, 50];
   
@@ -40,9 +39,13 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
     final c = widget.chore;
 
     titleController       = TextEditingController(text: c?['name'] ?? '');
-    //xpController          = TextEditingController(text: c?['xp']?.toString() ?? '');
     isRecurring           = c?['recurring'] ?? false;
     isRotation            = c?['rotation']  ?? false;
+
+    final existingXp = c?['xp'];
+    if (existingXp != null && xpOptions.contains(existingXp)) {
+      selectedXp = existingXp as int;
+    }
 
     selectedRoommate = (c?['assigned'] != null &&
             (c!['assigned'] as String).isNotEmpty)
@@ -64,7 +67,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
   void dispose() {
     titleController.dispose();
     dueDateController.dispose();
-    //xpController.dispose();
     super.dispose();
   }
 
@@ -93,44 +95,55 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
     }
   }
 
-  void submit() {
-    if (formKey.currentState!.validate()) {
-      final updated = {
-        'name':        titleController.text,
-        'assigned':    selectedRoommate ?? '',
-        'xp':          selectedXp ?? 0,
-        'completed':   widget.chore?['completed'] ?? false,
-        'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
-        'description': widget.chore?['description'] ?? '',
-        'recurring':   isRecurring,
-        'rotation':    isRotation,
-      };
-      Navigator.pop(context, updated);
+  Future<void> submit() async {
+    if (!formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final updated = {
+      'name':        titleController.text,
+      'assigned':    selectedRoommate ?? '',
+      'xp':          selectedXp ?? 0,
+      'completed':   widget.chore?['completed'] ?? false,
+      'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
+      'description': widget.chore?['description'] ?? '',
+      'recurring':   isRecurring,
+      'rotation':    isRotation,
+    };
+
+     try {
+      final choreId = widget.chore?['id'] as String?;
+      if (choreId != null) {
+        await _firestoreService.updateChore(choreId, updated);  // ← ADD THIS
+      }
+      if (mounted) Navigator.pop(context, updated);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update: $e')),
+      );
     }
   }
 
-  void deleteChore() {
-    showDialog(
+  Future<void> deleteChore() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Delete Chore',
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
             'Are you sure you want to delete "${titleController.text}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child:
                 const Text('Cancel', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context, {'deleted': true});
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete',
                 style: TextStyle(
                     color: Colors.red, fontWeight: FontWeight.bold)),
@@ -138,6 +151,22 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
         ],
       ),
     );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+     try {
+      final choreId = widget.chore?['id'] as String?;
+      if (choreId != null) {
+        await _firestoreService.deleteChore(choreId);  // ← ADD THIS
+      }
+      if (mounted) Navigator.pop(context, {'deleted': true});
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete: $e')),
+      );
+    }
   }
 
   @override
@@ -154,18 +183,43 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
               children: [
                 buildTopIconsUI(),
 
-                const Padding(
-                  padding: EdgeInsets.only(left: 25, right: 18, bottom: 12),
-                  child: Text(
-                    'Edit Chore',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.black,
-                      letterSpacing: -0.5,
-                    ),
+                // const Padding(
+                //   padding: EdgeInsets.only(left: 25, right: 18, bottom: 12),
+                //   child: Text(
+                //     'Edit Chore',
+                //     style: TextStyle(
+                //       fontSize: 36,
+                //       fontWeight: FontWeight.w900,
+                //       color: Colors.black,
+                //       letterSpacing: -0.5,
+                //     ),
+                //   ),
+                // ),
+
+                Padding(
+                  padding: const EdgeInsets.only(left: 25, right: 18, bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Chore',
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.black,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _isLoading ? null : deleteChore,
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.red, size: 28),
+                        tooltip: 'Delete chore',
+                      ),
+                    ],
                   ),
                 ),
+
 
                 Expanded(
                   child: SingleChildScrollView(
@@ -228,7 +282,7 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: submit,
+                      onPressed: _isLoading ? null : submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
@@ -237,17 +291,53 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Update Chore',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Update Chore',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
+
+                // Padding(
+                //   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                //   child: SizedBox(
+                //     width: double.infinity,
+                //     height: 54,
+                //     child: ElevatedButton(
+                //       onPressed: submit,
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: Colors.black,
+                //         foregroundColor: Colors.white,
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(30),
+                //         ),
+                //         elevation: 0,
+                //       ),
+                //       child: const Text(
+                //         'Update Chore',
+                //         style: TextStyle(
+                //           fontSize: 16,
+                //           fontWeight: FontWeight.w700,
+                //           letterSpacing: 0.3,
+                //         ),
+                //       ),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ),
