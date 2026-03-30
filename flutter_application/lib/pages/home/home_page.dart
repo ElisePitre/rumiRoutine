@@ -4,6 +4,7 @@ import '../home/edit_chore.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
+import '../../services/firestore_service.dart';
 
 enum CategoryType {
     completed,  
@@ -39,6 +40,7 @@ List<Map<String, dynamic>> chores = [
     'dueDate': DateTime.now().add(const Duration(days: 2)),
   },
 ];
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, required this.onRumiTap}) : super(key: key);
 
@@ -49,6 +51,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
   CategoryType? categoryType;
 
   @override
@@ -81,6 +84,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+  Future<void> testCreateUser() async {
+    final firestore = FirestoreService();
+
+    await firestore.createUser(
+      'testUID123',
+      'Lily Test',
+      'lily@test.com',
+    );
+
+    print("User created in Firestore!");
   }
   List<Map<String, dynamic>> getFilteredChores() {
     final today = DateTime.now();
@@ -298,6 +312,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.black,
                   ),
                 ),
+                /*ElevatedButton(
+                  onPressed: testCreateUser,
+                  child: const Text("Test Create User"),
+                ),*/
               ],
             ),
           ),
