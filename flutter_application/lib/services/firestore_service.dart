@@ -32,7 +32,6 @@ class FirestoreService {
         .where('householdId', isEqualTo: householdId)
         .snapshots();
   }
-  // CHORES
   Future<void> addChore(Map<String, dynamic> choreData) {
     return _db.collection('chores').add(choreData);
   }

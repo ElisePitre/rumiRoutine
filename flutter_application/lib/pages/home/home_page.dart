@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // TEMP: simulate logged-in user
+    // TODO: just to temporarily set the user, for tests
     UserProfileStore.name.value = "Lily";
   }
   Widget build(BuildContext context) {
@@ -110,18 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
       'householdId': householdId,
       'dueDate': Timestamp.now().toDate().add(const Duration(days: 2)),
     });
-
-    print("✅ Seed data added!");
-  }
-  Future<void> testCreateUser() async {
-
-    await _firestore.createUser(
-      'testUID123',
-      'Lily Test',
-      'lily@test.com',
-    );
-
-    print("User created in Firestore!");
   }
   List<Map<String, dynamic>> getOverdueChores(List<Map<String, dynamic>> chores) {
     final now = DateTime.now();
@@ -160,8 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(
           builder: (context) => EditChoreScreen(
             onRumiTap: widget.onRumiTap,
-            // OR swap to EditChoreScreen if you have it:
-            // chore: chore,
           ),
         ),
       );
@@ -171,12 +157,15 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
+            // TODO: bug where you cannot unselect the checkbox; wondering if we should add a 
+            // field in the edit screen if the user wants to go back and change the status?
             Checkbox(
               value: chore['completed'],
               onChanged: (value) async {
                 await _firestore.completeChore(
                   chore['id'],
-                  "testUser", // replace later with UID
+                  // TODO: replace later with UID
+                  "testUser",
                 );
               },
             ),
@@ -255,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 margin: const EdgeInsets.only(left: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red[100], // nice visual cue
+                  color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -312,13 +301,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-
-            // 🔥 OVERDUE SECTION (NOW ABOVE FILTERS)
             getOverdueChoresUI(firestoreChores),
 
             const SizedBox(height: 16),
 
-            // FILTER BUTTONS
             Padding(
               padding: const EdgeInsets.only(left: 16, right: 16),
               child: Row(
@@ -345,7 +331,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 16),
 
-            // MAIN LIST
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -494,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Column(
           children: [
-            getOverdueChoresUI(firestoreChores), // ✅ HERE
+            getOverdueChoresUI(firestoreChores), 
 
             ListView.builder(
               shrinkWrap: true,
