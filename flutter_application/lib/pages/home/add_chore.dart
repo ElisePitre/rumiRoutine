@@ -20,8 +20,11 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
   final xpController          = TextEditingController();
 
   String? selectedRoommate;
+  int?    selectedXp;
   bool isRecurring = false;
   bool isRotation  = false;
+
+  static const List<int> xpOptions = [15, 25, 50];
 
   List<String> get roommates => UserProfileStore.householdMembers.value;
 
@@ -29,7 +32,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
   void dispose() {
     titleController.dispose();
     dueDateController.dispose();
-    xpController.dispose();
     super.dispose();
   }
 
@@ -61,7 +63,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
       final newChore = {
         'name':        titleController.text,
         'assigned':    selectedRoommate ?? '',
-        'xp':          int.tryParse(xpController.text) ?? 0,
+        'xp':          selectedXp ?? 0,
         'completed':   false,
         'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
         'description': '',
@@ -121,18 +123,11 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                               v == null || v.isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 10),
-                        buildTextField(
-                          controller: xpController,
-                          hint: '*XP Weight',
-                          keyboardType: TextInputType.number,
-                          validator: (v) =>
-                              v == null || v.isEmpty ? 'Required' : null,
-                        ),
+                        buildXpDropdown(),
                         const SizedBox(height: 10),
                         buildRoommateDropdown(),
                         const SizedBox(height: 16),
 
-                        // ── Recurring? / Rotation? toggles ─────────
                         Row(
                           children: [
                             Expanded(
@@ -192,6 +187,26 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget buildXpDropdown() {
+    return DropdownButtonFormField<int>(
+      value: selectedXp,
+      hint: Text('*XP Weight',
+          style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+      decoration: inputDecoration('').copyWith(hintText: null),
+      style: const TextStyle(fontSize: 14, color: Colors.black),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black),
+      items: xpOptions
+          .map((xp) => DropdownMenuItem(
+                value: xp,
+                child: Text('$xp XP'),
+              ))
+          .toList(),
+      onChanged: (val) => setState(() => selectedXp = val),
+      validator: (v) => v == null ? 'Required' : null,
     );
   }
 
