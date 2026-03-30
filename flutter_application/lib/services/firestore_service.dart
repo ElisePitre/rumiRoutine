@@ -22,4 +22,24 @@ class FirestoreService {
 
     return ref.id;
   }
+  // to do delete a chore
+  Future deleteChore(String uid) async {
+    return _db.collection('chores').doc(uid).delete();
+  }
+  Stream<QuerySnapshot> getChores(String householdId) {
+    return _db
+        .collection('chores')
+        .where('householdId', isEqualTo: householdId)
+        .snapshots();
+  }
+  // CHORES
+  Future<void> addChore(Map<String, dynamic> choreData) {
+    return _db.collection('chores').add(choreData);
+  }
+  Future<void> completeChore(String choreId, String userId) {
+    return _db.collection('chores').doc(choreId).update({
+      'completed': true,
+      'completedBy': userId,
+    });
+  }
 }
