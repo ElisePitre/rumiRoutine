@@ -5,41 +5,13 @@ import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum CategoryType {
     completed,  
     dueToday,   
     myChores,    
   }
-final List<Map<String, String>> overdueChores = [
-  {'name': 'Mop', 'assigned': 'Silvia'},
-  {'name': 'Clean sink', 'assigned': 'Caitlin'},
-  {'name': 'Clean bathroom', 'assigned': 'Elise'},
-  {'name': 'Clean kitchen', 'assigned': 'Alina'},
-];
-List<Map<String, dynamic>> chores = [
-  {
-    'name': 'Wash dishes',
-    'assigned': UserProfileStore.name.value,
-    'xp': 20,
-    'completed': false,
-    'dueDate': DateTime.now().add(const Duration(days: 1)),
-  },
-  {
-    'name': 'Take out trash',
-    'assigned': 'Sam',
-    'xp': 15,
-    'completed': false,
-    'dueDate': DateTime.now(), // due today
-  },
-  {
-    'name': 'Vacuum',
-    'assigned': 'Jordan',
-    'xp': 25,
-    'completed': true,
-    'dueDate': DateTime.now().add(const Duration(days: 2)),
-  },
-];
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, required this.onRumiTap}) : super(key: key);
@@ -51,10 +23,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
+  final _firestore = FirestoreService();
+  final String householdId = "test-household"; // TEMP
   CategoryType? categoryType;
 
   @override
+  void initState() {
+    super.initState();
+
+    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
+    UserProfileStore.name.value = "User";
+  }
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
@@ -85,30 +64,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Future<void> testCreateUser() async {
-    final firestore = FirestoreService();
+  List<Map<String, dynamic>> getOverdueChores(List<Map<String, dynamic>> chores) {
+    final now = DateTime.now();
 
-    await firestore.createUser(
-      'testUID123',
-      'Lily Test',
-      'lily@test.com',
-    );
-
-    print("User created in Firestore!");
+    return chores.where((c) =>
+      !c['completed'] &&
+      (c['dueDate'] as DateTime).isBefore(now)
+    ).toList();
   }
-  List<Map<String, dynamic>> getFilteredChores() {
+  List<Map<String, dynamic>> applyFilter(List<Map<String, dynamic>> chores) {
     final today = DateTime.now();
 
-    if (categoryType == null) {
-      List<Map<String, dynamic>> allChores = List.from(chores);
-
-      allChores.sort((a, b) {
-        if (a['completed'] == b['completed']) return 0;
-        return a['completed'] ? 1 : -1;
-      });
-
-      return allChores;
-    }
+    if (categoryType == null) return chores;
 
     if (categoryType == CategoryType.completed) {
       return chores.where((c) => c['completed'] == true).toList();
@@ -120,12 +87,93 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     } 
     else {
-      return chores
-          .where((c) => c['assigned'] == UserProfileStore.name.value)
-          .toList();
+      return chores.where((c) =>
+        c['assigned'] == UserProfileStore.name.value
+      ).toList();
     }
   }
-  Widget getOverdueChoresUI() {
+    Widget buildChoreTile(Map<String, dynamic> chore) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditChoreScreen(
+                chore: chore,
+                onRumiTap: widget.onRumiTap,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200], // 👈 THIS is what you want
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Checkbox(
+                value: chore['completed'],
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  Future.microtask(() async {
+                    await _firestore.updateChore(chore['id'], {
+                      ...chore,
+                      'completed': value,
+                    });
+                  });
+                },
+              ),
+              Expanded(
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(chore['name']),
+                  Text('Assigned to: ${chore['assigned']}'),
+                  Text('XP: ${chore['xp']}'),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.black),
+              onPressed: () async {
+                final confirm = await showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Delete chore?"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Delete"),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await _firestore.deleteChore(chore['id']);
+                }
+              },
+            ),
+          ]
+        ),
+      ),
+    );
+  }
+  Widget getOverdueChoresUI(List<Map<String, dynamic>> chores) {
+    final overdue = getOverdueChores(chores);
+
+    if (overdue.isEmpty) {
+      return const SizedBox(); // hide section if none
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -141,37 +189,35 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 120, // controls card height
+          height: 120,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: overdueChores.length,
+            itemCount: overdue.length,
             itemBuilder: (context, index) {
-              final chore = overdueChores[index];
+              final chore = overdue[index];
 
               return Container(
                 width: 160,
                 margin: const EdgeInsets.only(left: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center, 
                   children: [
                     Text(
-                      chore['name']!,
+                      chore['name'],
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
-                      textAlign: TextAlign.center, 
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${chore['assigned']}',
-                      style: const TextStyle(fontSize: 14),
+                      chore['assigned'],
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -184,42 +230,64 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getCategoryUI() {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0, left: 18, right: 16),
-          ),
-          getOverdueChoresUI(),
-          const SizedBox(
-            height: 16,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16),
-            child: Row(
-              children: <Widget>[
-                getButtonUI(CategoryType.completed, categoryType == CategoryType.completed),
-                const SizedBox(
-                  width: 16,
-                ),
-                getButtonUI(
-                    CategoryType.dueToday, categoryType == CategoryType.dueToday),
-                const SizedBox(
-                  width: 16,
-                ),
-                getButtonUI(
-                    CategoryType.myChores, categoryType == CategoryType.myChores),
-              ],
+    return StreamBuilder(
+      stream: _firestore.streamChores(householdId),
+      builder: (context, snapshot) {
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final firestoreChores = snapshot.data!;
+
+        final filteredChores = applyFilter(firestoreChores);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            getOverdueChoresUI(firestoreChores),
+
+            const SizedBox(height: 16),
+
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16),
+              child: Row(
+                children: <Widget>[
+                  getButtonUI(
+                    CategoryType.completed,
+                    categoryType == CategoryType.completed,
+                  ),
+                  const SizedBox(width: 16),
+
+                  getButtonUI(
+                    CategoryType.dueToday,
+                    categoryType == CategoryType.dueToday,
+                  ),
+                  const SizedBox(width: 16),
+
+                  getButtonUI(
+                    CategoryType.myChores,
+                    categoryType == CategoryType.myChores,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(
-            height: 16,
-          ),
-          getChoreListUI(),
-        ],
-      );
-    }
+
+            const SizedBox(height: 16),
+
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredChores.length,
+              itemBuilder: (context, index) {
+                return buildChoreTile(filteredChores[index]);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
   Widget getTopIconsUI() {
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 12),
@@ -312,6 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.black,
                   ),
                 ),
+                
                 /*ElevatedButton(
                   onPressed: testCreateUser,
                   child: const Text("Test Create User"),
@@ -324,113 +393,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getChoreListUI() {
-    final filteredChores = getFilteredChores();
+    return StreamBuilder(
+      //stream: _firestore.getChores(householdId),
+      stream: _firestore.streamChores(householdId),
+      builder: (context, snapshot) {
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: filteredChores.length,
-      itemBuilder: (context, index) {
-        final chore = filteredChores[index];
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        return InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EditChoreScreen(onRumiTap: widget.onRumiTap),
-              ),
-            );
-          },
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), 
-            padding: const EdgeInsets.all(16), 
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08), 
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.grey.shade200,
-              ),
+        //final docs = snapshot.data!.docs;
+        final firestoreChores = snapshot.data!;
+
+        final filteredChores = applyFilter(firestoreChores);
+
+        return Column(
+          children: [
+            getOverdueChoresUI(firestoreChores), 
+
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredChores.length,
+              itemBuilder: (context, index) {
+                return buildChoreTile(filteredChores[index]);
+              },
             ),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: chore['completed'],
-                  onChanged: (value) {
-                    setState(() {
-                      chore['completed'] = value;
-                    });
-                  },
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        chore['name'],
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          decoration: chore['completed']
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                          color: chore['completed']
-                              ? Colors.grey
-                              : Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Assigned to: ${chore['assigned']}'),
-                      Text('XP: ${chore['xp']}'),
-                      Text(
-                        'Due: ${(chore['dueDate'] as DateTime).toString().split(' ')[0]}',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.black),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          content: const Text(
-                              "Are you sure you want to delete this chore?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text("Cancel"),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  chores.remove(chore);
-                                });
-                                Navigator.of(context).pop(); 
-                              },
-                              child: const Text("Delete"),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                )
-              ],
-            ),
-          ),
+          ],
         );
       },
     );
