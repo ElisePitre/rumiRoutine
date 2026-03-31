@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
 
     // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
-    UserProfileStore.name.value = "User";
+    UserProfileStore.name.value;
   }
   Widget build(BuildContext context) {
     return Container(

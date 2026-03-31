@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../shell/app_shell.dart';
 import '../../services/firestore_service.dart';
@@ -16,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   String email = 'email';
   String password = 'password';
   String confirmPassword = 'confirmPassword';
+  String householdCode = '';
   //String uid = 'uid';
   @override
   Widget build(BuildContext context) {
@@ -242,6 +244,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(60, 6, 60, 22),
                     child: TextFormField(
+                      onChanged: (value) => householdCode = value,
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         labelText: 'Household Code',
@@ -263,7 +266,16 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       onPressed: () async {
-                        await FirestoreService().signUp(email, password, name);
+                        
+                        if(householdCode.isEmpty) {
+                          householdCode = await FirestoreService().createHousehold(name);
+                          //await FirestoreService().addMemberToHousehold(newHouseholdId, FirebaseAuth.instance.currentUser!.uid);
+                        }
+                        await FirestoreService().signUp(email, password, name, householdCode);
+                        if (householdCode.isNotEmpty) {
+                          await FirestoreService().addMemberToHousehold(householdCode, FirebaseAuth.instance.currentUser!.uid);
+                        }
+                        
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute<void>(
                             builder: (_) => const AppShell(), //TODO: where to go after sign up??
