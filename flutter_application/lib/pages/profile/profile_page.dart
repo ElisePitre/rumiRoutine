@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -56,7 +57,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     UserProfileStore.saveProfile(
       updatedName: _nameController.text.trim().isEmpty
-        ? UserProfileStore.defaultName
+        ? UserProfileStore.name.value   //??UserProfileStore.defaultName
           : _nameController.text.trim(),
       updatedEmail: _emailController.text.trim().isEmpty
           ? 'fakeEmail@gmail.com'
@@ -380,7 +381,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   foregroundColor: Colors.black,
                   fixedSize: const Size(100, 45),
                 ),
-                onPressed: widget.onLogout,
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  widget.onLogout();
+                },
                 child: const Text('Log out'),
               ),
               SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
