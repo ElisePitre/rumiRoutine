@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../shell/app_shell.dart';
 import '../../services/firestore_service.dart';
@@ -12,10 +13,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String name = 'name';
-  String email = 'email';
-  String password = 'password';
-  String confirmPassword = 'confirmPassword';
+  String name = '';
+  String email = '';
+  String password = '';
+  String confirmPassword = '';
+  String householdCode = '';
   //String uid = 'uid';
   @override
   Widget build(BuildContext context) {
@@ -88,6 +90,23 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           onPressed: () async {
+                            if(email.isEmpty || password.isEmpty) {
+                              // show popup message
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Missing Fields'),
+                                  content: Text('Please fill in all fields'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
                             await FirestoreService().login(email, password);
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute<void>(
@@ -242,6 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(60, 6, 60, 22),
                     child: TextFormField(
+                      onChanged: (value) => householdCode = value,
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         labelText: 'Household Code',
@@ -263,7 +283,33 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       onPressed: () async {
-                        await FirestoreService().signUp(email, password, name);
+                        if(name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+                              // show popup message
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Missing Fields'),
+                                  content: Text('Please fill in all fields'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
+                        
+                        if(householdCode.isEmpty) {
+                          householdCode = await FirestoreService().createHousehold(name);
+                          //await FirestoreService().addMemberToHousehold(newHouseholdId, FirebaseAuth.instance.currentUser!.uid);
+                        }
+                        await FirestoreService().signUp(email, password, name, householdCode);
+                        if (householdCode.isNotEmpty) {
+                          await FirestoreService().addMemberToHousehold(householdCode, FirebaseAuth.instance.currentUser!.uid);
+                        }
+                        
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute<void>(
                             builder: (_) => const AppShell(), //TODO: where to go after sign up??

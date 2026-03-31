@@ -3,6 +3,7 @@ import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/firestore_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -33,6 +34,17 @@ class _ProfilePageState extends State<ProfilePage> {
     _memberControllers = UserProfileStore.householdMembers.value
         .map((member) => TextEditingController(text: member))
         .toList();
+
+    FirestoreService().getCurrentHouseholdId(FirebaseAuth.instance.currentUser!.uid).then((householdId) {
+      UserProfileStore.fetchAndSetHouseholdMembers(householdId).then((_) {
+        setState(() {
+        // Rebuild controllers with the latest data
+          _memberControllers = UserProfileStore.householdMembers.value
+            .map((member) => TextEditingController(text: member))
+            .toList();
+        });
+      });
+    });
   }
 
   @override
@@ -396,6 +408,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
+
 class NotificationsSwitch extends StatefulWidget {
   const NotificationsSwitch({super.key});
 
@@ -419,3 +432,4 @@ class _NotificationsSwitchState extends State<NotificationsSwitch> {
     );
   }
 }
+

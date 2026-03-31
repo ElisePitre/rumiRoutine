@@ -5,23 +5,80 @@ class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // for users
-  Future<void> createUser(String uid, String name, String email) {
+  Future<void> createUser(String uid, String name, String email, String householdId) {
     return _db.collection('users').doc(uid).set({
       'displayName': name,
       'email': email,
       'xp': 0,
-      'householdId': null,
+      'householdId': householdId,
     });
+  }
+  // for authentication 
+  Future<void> signUp(String email, String password, String name, String householdId) async {
+    final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
+    final String uid = userCredential.user!.uid;
+    await FirestoreService().createUser(uid, name, email, householdId);
+    await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+  }
+  Future<Map<String, dynamic>> getUserProfile(String uid) async {
+    DocumentSnapshot userData = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    return userData.data() as Map<String, dynamic>;
+  }
+
+  Future<void> login(String email, String password) async {
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        print('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        print('Wrong password provided for that user.');
+      }
+    }
   }
 
   // for households
-  Future<String> createHousehold(String name, String userId) async {
+  Future<List<String>> getHouseholdMembers(String uid) async {
+    DocumentSnapshot userData = await _db.collection('users').doc(uid).get();
+    String householdId = userData['householdId'];
+    DocumentSnapshot householdData = await _db.collection('household').doc(householdId).get();
+    List<dynamic> members = householdData['members'] ?? [];
+    return members.cast<String>();
+  }
+
+  
+  Future<String> createHousehold(String name) async {
     DocumentReference ref = await _db.collection('household').add({
-      'members': [userId],
+      'members': [name],
       'streak': 0,
     });
 
     return ref.id;
+  }
+
+  Future<String> getCurrentHouseholdId(String uid) async {
+    DocumentSnapshot userData = await _db.collection('users').doc(uid).get();
+    return userData['householdId'];
+  }
+
+   Future<void> addMemberToHousehold(String householdId, String uid) async {
+    DocumentSnapshot userData = await _db.collection('users').doc(uid).get();
+    String displayName = userData['displayName'];
+    await _db.collection('household').doc(householdId).update({
+      'members': FieldValue.arrayUnion([displayName]), 
+    });
+  }
+  
+  Future<void> removeMemberFromHousehold(String householdId, String uid) async {
+    await _db.collection('household').doc(householdId).update({
+      'members': FieldValue.arrayRemove([uid]),
+    });
+    await _db.collection('users').doc(uid).delete();
+    final User? user = FirebaseAuth.instance.currentUser;
+    await user?.delete();
   }
 
   // For Chores
@@ -79,29 +136,4 @@ class FirestoreService {
     await _db.collection('chores').doc(choreId).update({'completed': true});
   }
 
-  Future<void> signUp(String email, String password, String name) async {
-    final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
-    final String uid = userCredential.user!.uid;
-    await FirestoreService().createUser(uid, name, email);
-    await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
-  }
-  Future<Map<String, dynamic>> getUserProfile(String uid) async {
-    DocumentSnapshot userData = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    return userData.data() as Map<String, dynamic>;
-  }
-
-  Future<void> login(String email, String password) async {
-    try {
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password
-      );
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        print('No user found for that email.');
-      } else if (e.code == 'wrong-password') {
-        print('Wrong password provided for that user.');
-      }
-    }
-  }
 }
