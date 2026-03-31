@@ -71,6 +71,8 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
       'dueDate':   DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
       'recurring': isRecurring,
       'rotation':  isRotation,
+      // TODO: change this value to be dynamic
+      'householdId': "test-household", 
     };
 
     await _firestoreService.addChore(newChore);  

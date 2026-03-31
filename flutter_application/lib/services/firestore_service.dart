@@ -31,24 +31,31 @@ class FirestoreService {
     });
   }
 
-  Stream<List<Map<String, dynamic>>> streamChores() {
-    return _db.collection('chores').orderBy('dueDate').snapshots().map(
-          (snap) => snap.docs.map((doc) {
-            final data = doc.data();
-            return {
-              ...data,
-              'id':      doc.id,
-              'dueDate': (data['dueDate'] as Timestamp).toDate(),
-            };
-          }).toList(),
-        );
-  }
+  Stream<List<Map<String, dynamic>>> streamChores(String householdId) {
+  return FirebaseFirestore.instance
+      .collection('chores')
+      .where('householdId', isEqualTo: householdId)
+      .snapshots()
+      .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            ...data,
+            'dueDate': (data['dueDate'] as Timestamp).toDate(),
+          };
+        }).toList();
+      });
+  } 
 
   Future<void> updateChore(String choreId, Map<String, dynamic> updated) async {
-    await _db.collection('chores').doc(choreId).update({
-      ...updated,
-      'dueDate': Timestamp.fromDate(updated['dueDate'] as DateTime),
-    });
+    final data = Map<String, dynamic>.from(updated);
+
+    if (data['dueDate'] != null && data['dueDate'] is DateTime) {
+      data['dueDate'] = Timestamp.fromDate(data['dueDate']);
+    }
+
+    await _db.collection('chores').doc(choreId).update(data);
   }
 
   Future<void> deleteChore(String choreId) async {
