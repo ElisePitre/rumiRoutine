@@ -31,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // TODO: just to temporarily set the user, for tests
-    UserProfileStore.name.value = "Lily";
+    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
+    UserProfileStore.name.value = "User";
   }
   Widget build(BuildContext context) {
     return Container(
@@ -64,53 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Future<void> seedTestData() async {
-    final firestore = FirestoreService();
-
-    const householdId = "test-household";
-
-    // USERS
-    await firestore.createUser("u1", "Lily", "lily@test.com");
-    await firestore.createUser("u2", "Sam", "sam@test.com");
-    await firestore.createUser("u3", "Jordan", "jordan@test.com");
-
-    // CHORES
-    await firestore.addChore({
-      'name': 'Wash dishes',
-      'assigned': 'Lily',
-      'xp': 20,
-      'completed': false,
-      'householdId': householdId,
-      'dueDate': Timestamp.now(), // due today
-    });
-
-    await firestore.addChore({
-      'name': 'Take out trash',
-      'assigned': 'Sam',
-      'xp': 15,
-      'completed': false,
-      'householdId': householdId,
-      'dueDate': Timestamp.now(), // due today
-    });
-
-    await firestore.addChore({
-      'name': 'Vacuum',
-      'assigned': 'Jordan',
-      'xp': 25,
-      'completed': true,
-      'householdId': householdId,
-      'dueDate': Timestamp.now(),
-    });
-
-    await firestore.addChore({
-      'name': 'Clean bathroom',
-      'assigned': 'Lily',
-      'xp': 30,
-      'completed': false,
-      'householdId': householdId,
-      'dueDate': Timestamp.now().toDate().add(const Duration(days: 2)),
-    });
-  }
   List<Map<String, dynamic>> getOverdueChores(List<Map<String, dynamic>> chores) {
     final now = DateTime.now();
 
@@ -140,71 +93,75 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
     Widget buildChoreTile(Map<String, dynamic> chore) {
-  return InkWell(
-    borderRadius: BorderRadius.circular(16),
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => EditChoreScreen(
-            onRumiTap: widget.onRumiTap,
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditChoreScreen(
+                chore: chore,
+                onRumiTap: widget.onRumiTap,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200], // 👈 THIS is what you want
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-      );
-    },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // TODO: bug where you cannot unselect the checkbox; wondering if we should add a 
-            // field in the edit screen if the user wants to go back and change the status?
-            Checkbox(
-              value: chore['completed'],
-              onChanged: (value) async {
-                await _firestore.completeChore(
-                  chore['id'],
-                  // TODO: replace later with UID
-                  "testUser",
+          child: Row(
+            children: [
+              Checkbox(
+                value: chore['completed'],
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  Future.microtask(() async {
+                    await _firestore.updateChore(chore['id'], {
+                      ...chore,
+                      'completed': value,
+                    });
+                  });
+                },
+              ),
+              Expanded(
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(chore['name']),
+                  Text('Assigned to: ${chore['assigned']}'),
+                  Text('XP: ${chore['xp']}'),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.black),
+              onPressed: () async {
+                final confirm = await showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Delete chore?"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Delete"),
+                      ),
+                    ],
+                  ),
                 );
+                if (confirm == true) {
+                  await _firestore.deleteChore(chore['id']);
+                }
               },
             ),
-            Expanded(
-              child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(chore['name']),
-                Text('Assigned to: ${chore['assigned']}'),
-                Text('XP: ${chore['xp']}'),
-              ],
-            ),
-          ),
-
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.black),
-            onPressed: () async {
-              final confirm = await showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text("Delete chore?"),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text("Cancel"),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text("Delete"),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true) {
-                await _firestore.deleteChore(chore['id']);
-              }
-            },
-          ),
           ]
         ),
       ),
@@ -274,27 +231,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   Widget getCategoryUI() {
     return StreamBuilder(
-      stream: _firestore.getChores(householdId),
+      stream: _firestore.streamChores(householdId),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
-
-        List<Map<String, dynamic>> firestoreChores = docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'assigned': data['assigned'],
-            'xp': data['xp'],
-            'completed': data['completed'],
-            'dueDate': (data['dueDate'] as Timestamp).toDate(),
-          };
-        }).toList();
+        final firestoreChores = snapshot.data!;
 
         final filteredChores = applyFilter(firestoreChores);
 
@@ -436,10 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.black,
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: seedTestData,
-                  child: const Text("Seed Test Data"),
-                ),
+                
                 /*ElevatedButton(
                   onPressed: testCreateUser,
                   child: const Text("Test Create User"),
@@ -453,27 +394,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   Widget getChoreListUI() {
     return StreamBuilder(
-      stream: _firestore.getChores(householdId),
+      //stream: _firestore.getChores(householdId),
+      stream: _firestore.streamChores(householdId),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
-
-        List<Map<String, dynamic>> firestoreChores = docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'assigned': data['assigned'],
-            'xp': data['xp'],
-            'completed': data['completed'],
-            'dueDate': (data['dueDate'] as Timestamp).toDate(),
-          };
-        }).toList();
+        //final docs = snapshot.data!.docs;
+        final firestoreChores = snapshot.data!;
 
         final filteredChores = applyFilter(firestoreChores);
 
