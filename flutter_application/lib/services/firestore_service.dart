@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -64,5 +65,31 @@ class FirestoreService {
 
   Future<void> markChoreComplete(String choreId) async {
     await _db.collection('chores').doc(choreId).update({'completed': true});
+  }
+
+  Future<void> signUp(String email, String password, String name) async {
+    final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
+    final String uid = userCredential.user!.uid;
+    await FirestoreService().createUser(uid, name, email);
+    await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+  }
+  Future<Map<String, dynamic>> getUserProfile(String uid) async {
+    DocumentSnapshot userData = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    return userData.data() as Map<String, dynamic>;
+  }
+
+  Future<void> login(String email, String password) async {
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        print('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        print('Wrong password provided for that user.');
+      }
+    }
   }
 }

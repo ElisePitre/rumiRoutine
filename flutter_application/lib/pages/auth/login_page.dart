@@ -88,6 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           onPressed: () async {
+                            await FirestoreService().login(email, password);
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute<void>(
                                 builder: (_) => const AppShell(),
