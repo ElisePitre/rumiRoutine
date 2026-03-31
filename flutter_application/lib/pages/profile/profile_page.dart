@@ -56,7 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     UserProfileStore.saveProfile(
       updatedName: _nameController.text.trim().isEmpty
-        ? UserProfileStore.defaultName
+        ? UserProfileStore.name.value   //??UserProfileStore.defaultName
           : _nameController.text.trim(),
       updatedEmail: _emailController.text.trim().isEmpty
           ? 'fakeEmail@gmail.com'

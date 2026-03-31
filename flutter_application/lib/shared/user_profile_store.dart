@@ -1,19 +1,23 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+//import '../services/firestore_service.dart';
+
 
 class UserProfileStore {
-  static const String defaultName = 'Suraj';
-  static const List<String> defaultHouseholdMembers = <String>[
+  //static String defaultName =  name.value;//'Suraj';
+  static List<String> defaultHouseholdMembers = <String>[
     'Silvia',
     'Caitlin',
     'Alina',
     'Elise',
-    defaultName,
+    FirebaseAuth.instance.currentUser?.displayName ?? '',
   ];
 
   static final ValueNotifier<String> name =
-      ValueNotifier<String>(defaultName);
-  static final ValueNotifier<String> email =
-      ValueNotifier<String>('fakeEmail@gmail.com');
+      ValueNotifier<String>(FirebaseAuth.instance.currentUser?.displayName ?? '');
+  static final ValueNotifier<String> email = 
+      ValueNotifier<String>(FirebaseAuth.instance.currentUser?.email ?? '');
+      //ValueNotifier<String>('fakeEmail@gmail.com');
   static final ValueNotifier<List<String>> householdMembers =
       ValueNotifier<List<String>>(
     List<String>.from(defaultHouseholdMembers),

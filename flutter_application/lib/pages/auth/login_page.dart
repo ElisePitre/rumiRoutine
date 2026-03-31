@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
 import '../shell/app_shell.dart';
+import '../../services/firestore_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,6 +12,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  String name = 'name';
+  String email = 'email';
+  String password = 'password';
+  String confirmPassword = 'confirmPassword';
+  //String uid = 'uid';
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,6 +50,7 @@ class _LoginPageState extends State<LoginPage> {
                   Padding(
                   padding: const EdgeInsets.fromLTRB(4, 60, 4, 6),
                   child:TextFormField(
+                    onChanged: (value) => email = value,
                     decoration: InputDecoration(
                       labelText: 'Email',
                       border: OutlineInputBorder(
@@ -55,6 +62,7 @@ class _LoginPageState extends State<LoginPage> {
                   Padding(
                   padding: const EdgeInsets.fromLTRB(4, 6, 4, 18),
                   child: TextFormField(
+                    onChanged: (value) => password = value,
                     decoration: InputDecoration(
                       labelText: 'Password',
                       border: OutlineInputBorder(
@@ -79,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
                               fontSize: 20,
                             ),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute<void>(
                                 builder: (_) => const AppShell(),
@@ -158,6 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(4, 18, 4, 18),
                     child: TextFormField(
+                      onChanged: (value) => name = value,
                       decoration: InputDecoration(
                         labelText: 'Name',
                         border: OutlineInputBorder(
@@ -169,6 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(4, 6, 4, 18),
                     child: TextFormField(
+                      onChanged: (value) => email = value,
                       decoration: InputDecoration(
                         labelText: 'Email',
                         border: OutlineInputBorder(
@@ -180,6 +190,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(4, 6, 4, 18),
                     child: TextFormField(
+                      onChanged: (value) => password = value,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         border: OutlineInputBorder(
@@ -192,6 +203,7 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                     padding: const EdgeInsets.fromLTRB(4, 6, 4, 22),
                     child: TextFormField(
+                      onChanged: (value) => confirmPassword = value,
                       decoration: InputDecoration(
                         labelText: 'Confirm Password',
                         border: OutlineInputBorder(
@@ -249,7 +261,8 @@ class _LoginPageState extends State<LoginPage> {
                           fontSize: 20,
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
+                        await FirestoreService().signUp(email, password, name);
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute<void>(
                             builder: (_) => const AppShell(), //TODO: where to go after sign up??
