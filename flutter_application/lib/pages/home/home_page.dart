@@ -31,9 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
-    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
-    UserProfileStore.name.value = "User";
+    // gets the user's name for displaying 
+    UserProfileStore.name.value;
   }
   Widget build(BuildContext context) {
     return Container(
@@ -106,13 +105,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     }
   }
-    Widget buildChoreTile(Map<String, dynamic> chore) {
-      final dueDate = chore['dueDate'];
-            DateTime? date;
+  // the design for the clickable chores
+  Widget buildChoreTile(Map<String, dynamic> chore) {
+    final dueDate = chore['dueDate'];
+      DateTime? date;
 
+      // converting the timestamp stored in firebase to Datetime for better formatting when displayed
       if (dueDate is Timestamp) {
         date = dueDate.toDate();
-      } else if (dueDate is DateTime) {
+      } 
+      else if (dueDate is DateTime) {
         date = dueDate;
       }
       return InkWell(
@@ -132,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[200], // 👈 THIS is what you want
+            color: Colors.grey[200], 
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -168,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final confirm = await showDialog(
                   context: context,
+                  // confirmation of deletion
                   builder: (context) => AlertDialog(
                     title: const Text("Delete chore?"),
                     actions: [
