@@ -75,8 +75,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   List<Map<String, dynamic>> applyFilter(List<Map<String, dynamic>> chores) {
     final today = DateTime.now();
+    // when there is no filter, there is still a sorting applied where 
+    // completed chores go at the bottom
+    if (categoryType == null) {
+      final sorted = List<Map<String, dynamic>>.from(chores);
 
-    if (categoryType == null) return chores;
+      sorted.sort((a, b) {
+        final aCompleted = a['completed'] == true;
+        final bCompleted = b['completed'] == true;
+
+        if (aCompleted == bCompleted) return 0;
+        if (aCompleted) return 1;   
+        return -1;               
+      });
+      return sorted;
+    }
 
     if (categoryType == CategoryType.completed) {
       return chores.where((c) => c['completed'] == true).toList();
