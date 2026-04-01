@@ -7,6 +7,7 @@ import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum CategoryType {
     completed,  
@@ -25,15 +26,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _firestore = FirestoreService();
-  final String householdId = "test-household"; // TEMP
+  String? householdId;
   CategoryType? categoryType;
 
   @override
   void initState() {
     super.initState();
 
-    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
-    UserProfileStore.name.value;
+    final uid = FirebaseAuth.instance.currentUser!.uid; 
+    FirestoreService().getCurrentHouseholdId(uid).then((id) { 
+      setState(() { 
+        householdId = id; }); 
+        UserProfileStore.fetchAndSetHouseholdMembers(id); 
+      });
   }
   Widget build(BuildContext context) {
     return Container(
@@ -46,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap),
+                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap, householdId: householdId!,),
               ),
             );
           },
@@ -75,8 +80,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   List<Map<String, dynamic>> applyFilter(List<Map<String, dynamic>> chores) {
     final today = DateTime.now();
+    // when there is no filter, there is still a sorting applied where 
+    // completed chores go at the bottom
+    if (categoryType == null) {
+      final sorted = List<Map<String, dynamic>>.from(chores);
 
-    if (categoryType == null) return chores;
+      sorted.sort((a, b) {
+        final aCompleted = a['completed'] == true;
+        final bCompleted = b['completed'] == true;
+
+        if (aCompleted == bCompleted) return 0;
+        if (aCompleted) return 1;   
+        return -1;               
+      });
+      return sorted;
+    }
 
     if (categoryType == CategoryType.completed) {
       return chores.where((c) => c['completed'] == true).toList();
@@ -93,13 +111,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     }
   }
-    Widget buildChoreTile(Map<String, dynamic> chore) {
-      final dueDate = chore['dueDate'];
-            DateTime? date;
+  // the design for the clickable chores
+  Widget buildChoreTile(Map<String, dynamic> chore) {
+    final dueDate = chore['dueDate'];
+      DateTime? date;
 
+      // converting the timestamp stored in firebase to Datetime for better formatting when displayed
       if (dueDate is Timestamp) {
         date = dueDate.toDate();
-      } else if (dueDate is DateTime) {
+      } 
+      else if (dueDate is DateTime) {
         date = dueDate;
       }
       return InkWell(
@@ -119,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[200], // 👈 THIS is what you want
+            color: Colors.grey[200], 
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -155,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final confirm = await showDialog(
                   context: context,
+                  // confirmation of deletion
                   builder: (context) => AlertDialog(
                     title: const Text("Delete chore?"),
                     actions: [
@@ -242,8 +264,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getCategoryUI() {
+    if (householdId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return StreamBuilder(
-      stream: _firestore.streamChores(householdId),
+      stream: _firestore.streamChores(householdId!),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
@@ -407,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget getChoreListUI() {
     return StreamBuilder(
       //stream: _firestore.getChores(householdId),
-      stream: _firestore.streamChores(householdId),
+      stream: _firestore.streamChores(householdId!),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
