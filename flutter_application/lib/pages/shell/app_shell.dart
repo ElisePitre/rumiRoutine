@@ -23,11 +23,14 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final _firestore = FirestoreService();
+  static const int _rumiAgeDaysDefault = 7;
+  static const String _rumiEmotionDefault = 'normal';
+
+  final FirestoreService _firestore = FirestoreService();
 
   int _selectedIndex = 0;
-  int _rumiAgeDays = 7;
-  String _rumiEmotion = 'normal';
+  int _rumiAgeDays = _rumiAgeDaysDefault;
+  String _rumiEmotion = _rumiEmotionDefault;
   String _boundHouseholdId = '';
 
   StreamSubscription<Map<String, dynamic>?>? _userSubscription;
@@ -41,78 +44,109 @@ class _AppShellState extends State<AppShell> {
     _bindRealtimeData();
   }
 
+  @override
+  void dispose() {
+    _cancelAllSubscriptions();
+    super.dispose();
+  }
+
+  void _cancelAllSubscriptions() {
+    _userSubscription?.cancel();
+    _householdSubscription?.cancel();
+    _householdUsersSubscription?.cancel();
+    _choresSubscription?.cancel();
+  }
+
   void _bindRealtimeData() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    _userSubscription = _firestore.streamUserProfile(uid).listen((userData) {
-      if (userData == null) return;
+    _userSubscription =
+        _firestore.streamUserProfile(uid).listen((userData) {
+      _handleUserProfileUpdate(userData);
+    });
+  }
 
-      final name = (userData['displayName'] ?? '').toString();
-      final email = (userData['email'] ?? '').toString();
-      final householdId = (userData['householdId'] ?? '').toString();
+  void _handleUserProfileUpdate(Map<String, dynamic>? userData) {
+    if (userData == null) return;
 
-      if (name.isNotEmpty && UserProfileStore.name.value != name) {
-        UserProfileStore.name.value = name;
+    final name = (userData['displayName'] ?? '').toString();
+    final email = (userData['email'] ?? '').toString();
+    final householdId = (userData['householdId'] ?? '').toString();
+
+    if (name.isNotEmpty && UserProfileStore.name.value != name) {
+      UserProfileStore.name.value = name;
+    }
+    if (email.isNotEmpty && UserProfileStore.email.value != email) {
+      UserProfileStore.email.value = email;
+    }
+
+    if (householdId.isEmpty || householdId == _boundHouseholdId) {
+      return;
+    }
+
+    _boundHouseholdId = householdId;
+    _bindHouseholdData(householdId);
+  }
+
+  void _bindHouseholdData(String householdId) {
+    _householdSubscription?.cancel();
+    _householdUsersSubscription?.cancel();
+    _choresSubscription?.cancel();
+
+    _householdSubscription = _firestore
+        .streamHousehold(householdId)
+        .listen((householdData) {
+      final streak = (householdData?['streak'] as num?)?.toInt() ?? 0;
+      if (StreakStore.count.value != streak) {
+        StreakStore.update(streak);
       }
-      if (email.isNotEmpty && UserProfileStore.email.value != email) {
-        UserProfileStore.email.value = email;
-      }
+    });
 
-      if (householdId.isEmpty || householdId == _boundHouseholdId) {
-        return;
-      }
+    _bindHouseholdUsersAndChores(householdId);
+  }
 
-      _boundHouseholdId = householdId;
-      _householdSubscription?.cancel();
-      _householdUsersSubscription?.cancel();
+  void _bindHouseholdUsersAndChores(String householdId) {
+    _householdUsersSubscription =
+        _firestore.streamUsersByHousehold(householdId).listen((users) {
       _choresSubscription?.cancel();
+      _choresSubscription =
+          _firestore.streamChores(householdId).listen((chores) async {
+        await _firestore.syncHouseholdUserXpFromCompletedChores(users, chores);
 
-      _householdSubscription =
-          _firestore.streamHousehold(householdId).listen((householdData) {
-        final streak = (householdData?['streak'] as num?)?.toInt() ?? 0;
-        if (StreakStore.count.value != streak) {
-          StreakStore.update(streak);
+        // Calculate household XP with completed chore bonuses
+        final householdXp =
+            _firestore.computeHouseholdXpWithChores(users, chores);
+
+        if (HouseholdXpStore.householdXp.value != householdXp) {
+          HouseholdXpStore.update(householdXp);
         }
-      });
 
-      // Combine users and chores streams to calculate total household XP and emotion
-      _householdUsersSubscription =
-          _firestore.streamUsersByHousehold(householdId).listen((users) {
-        _choresSubscription?.cancel();
-        _choresSubscription = _firestore.streamChores(householdId).listen((chores) async {
-          await _firestore.syncHouseholdUserXpFromCompletedChores(users, chores);
+        // Update streak if no overdue chores
+        _firestore.updateHouseholdStreakIfNeeded(householdId, chores);
 
-          // Calculate household XP with completed chore bonuses
-          final householdXp = _firestore.computeHouseholdXpWithChores(users, chores);
+        // Calculate rumi emotion based on overdue chores
+        final overdueCount = _firestore.countOverdueChores(chores);
+        final newEmotion = _calculateRumiEmotion(chores, overdueCount);
 
-          if (HouseholdXpStore.householdXp.value != householdXp) {
-            HouseholdXpStore.update(householdXp);
-          }
+        if (_rumiEmotion != newEmotion) {
+          setState(() {
+            _rumiEmotion = newEmotion;
+          });
+          RumiEmotionStore.update(newEmotion);
+        }
 
-          // Update streak if no overdue chores
-          _firestore.updateHouseholdStreakIfNeeded(householdId, chores);
+        final members = users
+            .map((user) => (user['displayName'] ?? '').toString())
+            .where((name) => name.isNotEmpty)
+            .toList();
 
-          // Calculate rumi emotion based on overdue chores
-          final overdueCount = _firestore.countOverdueChores(chores);
-          final newEmotion = _calculateRumiEmotion(chores, overdueCount);
-
-          if (_rumiEmotion != newEmotion) {
-            setState(() {
-              _rumiEmotion = newEmotion;
-            });
-            RumiEmotionStore.update(newEmotion);
-          }
-
-          final members = users
-              .map((user) => (user['displayName'] ?? '').toString())
-              .where((name) => name.isNotEmpty)
-              .toList();
-
-          if (!listEquals(UserProfileStore.householdMembers.value, members)) {
-            UserProfileStore.householdMembers.value = members;
-          }
-        });
+        if (!listEquals(
+          UserProfileStore.householdMembers.value,
+          members,
+        )) {
+          UserProfileStore.householdMembers.value = members;
+        }
       });
     });
   }
@@ -122,7 +156,8 @@ class _AppShellState extends State<AppShell> {
     int overdueCount,
   ) {
     // Count uncompleted chores
-    final uncompletedCount = chores.where((c) => !c['completed']).length;
+    final uncompletedCount =
+        chores.where((c) => !c['completed']).length;
 
     // If no incomplete chores at all, rumi is blissful
     if (uncompletedCount == 0) {
@@ -144,40 +179,21 @@ class _AppShellState extends State<AppShell> {
   }
 
   @override
-  void dispose() {
-    _userSubscription?.cancel();
-    _householdSubscription?.cancel();
-    _householdUsersSubscription?.cancel();
-    _choresSubscription?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final pages = [
       HomeScreen(
-        onRumiTap: () {
-          setState(() {
-            _selectedIndex = 3;
-          });
-        },
+        onRumiTap: () => _handleNavigation(3),
       ),
       ProgressPage(
-        onRumiTap: () {
-          setState(() {
-            _selectedIndex = 3;
-          });
-        },
+        onRumiTap: () => _handleNavigation(3),
       ),
       ProfilePage(
-        onRumiTap: () {
-          setState(() {
-            _selectedIndex = 3;
-          });
-        },
+        onRumiTap: () => _handleNavigation(3),
         onLogout: () {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+            MaterialPageRoute<void>(
+              builder: (_) => const LoginPage(),
+            ),
             (route) => false,
           );
         },
@@ -189,7 +205,7 @@ class _AppShellState extends State<AppShell> {
     ];
 
     return Scaffold(
-      body: SafeArea (
+      body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: IndexedStack(
@@ -198,36 +214,42 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outlined),
-            selectedIcon: Icon(Icons.favorite),
-            label: '',
-          ),
-        ],
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-      ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return NavigationBar(
+      selectedIndex: _selectedIndex,
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: '',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.emoji_events_outlined),
+          selectedIcon: Icon(Icons.emoji_events),
+          label: '',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: '',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.favorite_outlined),
+          selectedIcon: Icon(Icons.favorite),
+          label: '',
+        ),
+      ],
+      onDestinationSelected: _handleNavigation,
+    );
+  }
+
+  void _handleNavigation(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 }

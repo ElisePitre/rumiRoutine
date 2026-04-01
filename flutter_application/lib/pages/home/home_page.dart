@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+
 import '../home/add_chore.dart';
 import '../home/edit_chore.dart';
 import '../../shared/streak_store.dart';
@@ -6,35 +10,40 @@ import '../../shared/rumi_accessory_store.dart';
 import '../../shared/rumi_emotion_store.dart';
 import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 
 enum CategoryType {
-    completed,  
-    dueToday,   
-    myChores,    
-  }
+  completed,
+  dueToday,
+  myChores,
+}
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, required this.onRumiTap}) : super(key: key);
+  const HomeScreen({
+    Key? key,
+    required this.onRumiTap,
+  }) : super(key: key);
 
   final VoidCallback onRumiTap;
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _firestore = FirestoreService();
+  static const String _overdueChoresTitle = 'Overdue Chores';
+  static const String _completedButtonLabel = 'Completed';
+  static const String _dueTodayButtonLabel = 'Due Today';
+  static const String _myChoresButtonLabel = 'My Chores';
+  static const double _choreCardCornerRadius = 16.0;
+
+  final FirestoreService _firestore = FirestoreService();
+
   CategoryType? categoryType;
   String _householdId = '';
 
   @override
   void initState() {
     super.initState();
-
-    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
     UserProfileStore.name.value;
     _loadHouseholdId();
   }
@@ -51,76 +60,95 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            if (_householdId.isEmpty) return;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AddChoreScreen(
-                  onRumiTap: widget.onRumiTap,
-                  householdId: _householdId,
-                ),
-              ),
-            );
-          },
+          onPressed: _handleAddChore,
           backgroundColor: Colors.black,
           child: const Icon(Icons.add, color: Colors.white),
         ),
         body: SingleChildScrollView(
           child: Column(
-          children: [
-            getTopIconsUI(),
-            getAppBarUI(),
-            getCategoryUI(),
-          ],
-        ),
+            children: [
+              _buildTopIconsUI(),
+              _buildAppBarUI(),
+              _buildCategoryUI(),
+            ],
+          ),
         ),
       ),
     );
   }
-  List<Map<String, dynamic>> getOverdueChores(List<Map<String, dynamic>> chores) {
-    final now = DateTime.now();
 
-    return chores.where((c) =>
-      !c['completed'] &&
-      (c['dueDate'] as DateTime).isBefore(now)
-    ).toList();
+  // ==================== Helper Methods ====================
+
+  void _handleAddChore() {
+    if (_householdId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddChoreScreen(
+          onRumiTap: widget.onRumiTap,
+          householdId: _householdId,
+        ),
+      ),
+    );
   }
-  List<Map<String, dynamic>> applyFilter(List<Map<String, dynamic>> chores) {
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  List<Map<String, dynamic>> _getOverdueChores(
+    List<Map<String, dynamic>> chores,
+  ) {
+    final now = DateTime.now();
+    return chores
+        .where(
+          (c) => !c['completed'] && (c['dueDate'] as DateTime).isBefore(now),
+        )
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _applyFilter(
+    List<Map<String, dynamic>> chores,
+  ) {
     final today = DateTime.now();
 
     if (categoryType == null) return chores;
 
-    if (categoryType == CategoryType.completed) {
-      return chores.where((c) => c['completed'] == true).toList();
-    } 
-    else if (categoryType == CategoryType.dueToday) {
-      return chores.where((c) =>
-        !c['completed'] &&
-        isSameDay(c['dueDate'], today)
-      ).toList();
-    } 
-    else {
-      return chores.where((c) =>
-        c['assigned'] == UserProfileStore.name.value
-      ).toList();
+    switch (categoryType) {
+      case CategoryType.completed:
+        return chores.where((c) => c['completed'] == true).toList();
+      case CategoryType.dueToday:
+        return chores
+            .where(
+              (c) =>
+                  !c['completed'] && _isSameDay(c['dueDate'], today),
+            )
+            .toList();
+      case CategoryType.myChores:
+        return chores
+            .where(
+              (c) => c['assigned'] == UserProfileStore.name.value,
+            )
+            .toList();
+      default:
+        return chores;
     }
   }
 
   List<Map<String, dynamic>> _sortChoresSmartly(
     List<Map<String, dynamic>> chores,
   ) {
-    // Sort so uncompleted chores come first (by date), then completed (by date)
     final List<Map<String, dynamic>> uncompleted = [];
     final List<Map<String, dynamic>> completed = [];
 
+    // Separate uncompleted and completed chores
     for (final chore in chores) {
       if (chore['completed'] == true) {
         completed.add(chore);
@@ -130,265 +158,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Sort each group by date
-    uncompleted.sort((a, b) {
-      final aDate = (a['dueDate'] as DateTime?);
-      final bDate = (b['dueDate'] as DateTime?);
-
-      if (aDate == null && bDate == null) return 0;
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-
-      return aDate.compareTo(bDate);
-    });
-
-    completed.sort((a, b) {
-      final aDate = (a['dueDate'] as DateTime?);
-      final bDate = (b['dueDate'] as DateTime?);
-
-      if (aDate == null && bDate == null) return 0;
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-
-      return aDate.compareTo(bDate);
-    });
+    _sortByDate(uncompleted);
+    _sortByDate(completed);
 
     return [...uncompleted, ...completed];
   }
-    Widget buildChoreTile(Map<String, dynamic> chore) {
-      final dueDate = chore['dueDate'];
-            DateTime? date;
 
-      if (dueDate is Timestamp) {
-        date = dueDate.toDate();
-      } else if (dueDate is DateTime) {
-        date = dueDate;
-      }
-      return InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EditChoreScreen(
-                chore: chore,
-                onRumiTap: widget.onRumiTap,
-              ),
-            ),
-          );
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[200], // 👈 THIS is what you want
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Checkbox(
-                value: chore['completed'],
-                onChanged: (value) {
-                  if (value == null) return;
+  void _sortByDate(List<Map<String, dynamic>> chores) {
+    chores.sort((a, b) {
+      final aDate = a['dueDate'] as DateTime?;
+      final bDate = b['dueDate'] as DateTime?;
 
-                  Future.microtask(() async {
-                    final updatedChore = Map<String, dynamic>.from(chore);
-                    updatedChore.remove('id');
-                    updatedChore['completed'] = value;
-                    await _firestore.updateChore(chore['id'], {
-                      ...updatedChore,
-                    });
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
 
-                    // Update assigned user's XP when chore completion changes
-                    final assignedUserName = chore['assigned'] as String?;
-                    if (assignedUserName != null && assignedUserName.isNotEmpty) {
-                      final uid = await _firestore.getUserUidByDisplayName(
-                        assignedUserName,
-                        _householdId,
-                      );
-                      if (uid != null) {
-                        await _firestore.updateUserXpFromCompletedChores(
-                          uid,
-                          assignedUserName,
-                          _householdId,
-                        );
-                      }
-                    }
-                  });
-                },
-              ),
-              Expanded(
-                child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(chore['name']),
-                  Text('Assigned to: ${chore['assigned']}'),
-                  Text('XP: ${chore['xp']}'),
-                  Text(
-                    date == null ? '' : DateFormat('MMM d').format(date),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.black),
-              onPressed: () async {
-                final confirm = await showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text("Delete chore?"),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text("Delete"),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await _firestore.deleteChore(chore['id']);
-                }
-              },
-            ),
-          ]
-        ),
-      ),
-    );
+      return aDate.compareTo(bDate);
+    });
   }
-  Widget getOverdueChoresUI(List<Map<String, dynamic>> chores) {
-    final overdue = getOverdueChores(chores);
 
-    if (overdue.isEmpty) {
-      return const SizedBox(); // hide section if none
-    }
+  // ==================== UI Builders ====================
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16, top: 16),
-          child: Text(
-            'Overdue Chores',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 120,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: overdue.length,
-            itemBuilder: (context, index) {
-              final chore = overdue[index];
-
-              return Container(
-                width: 160,
-                margin: const EdgeInsets.only(left: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      chore['name'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      chore['assigned'],
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-  Widget getCategoryUI() {
-    if (_householdId.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return StreamBuilder(
-      stream: _firestore.streamChores(_householdId),
-      builder: (context, snapshot) {
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final firestoreChores = snapshot.data!;
-
-        final filteredChores = applyFilter(firestoreChores);
-        
-        // Apply smart sorting when no category is selected
-        final displayChores = categoryType == null 
-          ? _sortChoresSmartly(filteredChores)
-          : filteredChores;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            getOverdueChoresUI(firestoreChores),
-
-            const SizedBox(height: 16),
-
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16),
-              child: Row(
-                children: <Widget>[
-                  getButtonUI(
-                    CategoryType.completed,
-                    categoryType == CategoryType.completed,
-                  ),
-                  const SizedBox(width: 16),
-
-                  getButtonUI(
-                    CategoryType.dueToday,
-                    categoryType == CategoryType.dueToday,
-                  ),
-                  const SizedBox(width: 16),
-
-                  getButtonUI(
-                    CategoryType.myChores,
-                    categoryType == CategoryType.myChores,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: displayChores.length,
-              itemBuilder: (context, index) {
-                return buildChoreTile(displayChores[index]);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-  Widget getTopIconsUI() {
+  Widget _buildTopIconsUI() {
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 12),
       child: SizedBox(
@@ -434,9 +225,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     valueListenable: RumiEmotionStore.emotion,
                     builder: (context, emotion, _) =>
                         ValueListenableBuilder<String?>(
-                          valueListenable: RumiAccessoryStore.selectedAccessory,
+                          valueListenable:
+                              RumiAccessoryStore.selectedAccessory,
                           builder: (context, _, __) => Image.asset(
-                            RumiAccessoryStore.currentRumiImagePathForEmotion(emotion),
+                            RumiAccessoryStore
+                                .currentRumiImagePathForEmotion(emotion),
                             width: 112,
                             height: 112,
                             fit: BoxFit.contain,
@@ -451,7 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Widget getAppBarUI() {
+
+  Widget _buildAppBarUI() {
     return Padding(
       padding: const EdgeInsets.only(top: 0, left: 25, right: 18),
       child: Row(
@@ -466,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (context, profileName, _) => Text(
                     'Hello $profileName!',
                     textAlign: TextAlign.left,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w400,
                       fontSize: 25,
                       letterSpacing: 0.2,
@@ -474,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                Text(
+                const Text(
                   'Chore Page',
                   textAlign: TextAlign.left,
                   style: TextStyle(
@@ -484,11 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.black,
                   ),
                 ),
-                
-                /*ElevatedButton(
-                  onPressed: testCreateUser,
-                  child: const Text("Test Create User"),
-                ),*/
               ],
             ),
           ),
@@ -496,35 +285,40 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Widget getChoreListUI() {
+
+  Widget _buildCategoryUI() {
     if (_householdId.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return StreamBuilder(
-      //stream: _firestore.getChores(householdId),
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _firestore.streamChores(_householdId),
       builder: (context, snapshot) {
-
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        //final docs = snapshot.data!.docs;
         final firestoreChores = snapshot.data!;
+        final filteredChores = _applyFilter(firestoreChores);
 
-        final filteredChores = applyFilter(firestoreChores);
+        // Apply smart sorting when no category is selected
+        final displayChores = categoryType == null
+            ? _sortChoresSmartly(filteredChores)
+            : filteredChores;
 
         return Column(
-          children: [
-            getOverdueChoresUI(firestoreChores), 
-
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _buildOverdueChoresUI(firestoreChores),
+            const SizedBox(height: 16),
+            _buildCategoryButtonsUI(),
+            const SizedBox(height: 16),
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredChores.length,
+              itemCount: displayChores.length,
               itemBuilder: (context, index) {
-                return buildChoreTile(filteredChores[index]);
+                return _buildChoreTile(displayChores[index]);
               },
             ),
           ],
@@ -532,30 +326,46 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-  bool isSameDay(DateTime a, DateTime b) {
-      return a.year == b.year &&
-            a.month == b.month &&
-            a.day == b.day;
+
+  Widget _buildCategoryButtonsUI() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Row(
+        children: <Widget>[
+          _buildCategoryButton(
+            CategoryType.completed,
+            categoryType == CategoryType.completed,
+            _completedButtonLabel,
+          ),
+          const SizedBox(width: 16),
+          _buildCategoryButton(
+            CategoryType.dueToday,
+            categoryType == CategoryType.dueToday,
+            _dueTodayButtonLabel,
+          ),
+          const SizedBox(width: 16),
+          _buildCategoryButton(
+            CategoryType.myChores,
+            categoryType == CategoryType.myChores,
+            _myChoresButtonLabel,
+          ),
+        ],
+      ),
+    );
   }
-  Widget getButtonUI(CategoryType categoryTypeData, bool isSelected) {
-    String txt = '';
-    if (CategoryType.completed == categoryTypeData) {
-      txt = 'Completed';
-    } 
-    else if (CategoryType.dueToday == categoryTypeData) {
-      txt = 'Due Today';
-    } 
-    else if (CategoryType.myChores == categoryTypeData) {
-      txt = 'My Chores';
-    }
+
+  Widget _buildCategoryButton(
+    CategoryType categoryTypeData,
+    bool isSelected,
+    String label,
+  ) {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.black
-                : Colors.white,
-            borderRadius: const BorderRadius.all(Radius.circular(24.0)),
-            border: Border.all(color: Colors.black)),
+          color: isSelected ? Colors.black : Colors.white,
+          borderRadius: const BorderRadius.all(Radius.circular(24.0)),
+          border: Border.all(color: Colors.black),
+        ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -571,11 +381,13 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             child: Padding(
-              padding: const EdgeInsets.only(
-                  top: 12, bottom: 12, left: 12, right: 12),
+              padding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 12,
+              ),
               child: Center(
                 child: Text(
-                  txt,
+                  label,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   softWrap: false,
@@ -584,14 +396,184 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     letterSpacing: 0.27,
-                    color: isSelected
-                        ? Colors.white
-                        : Colors.black,
+                    color: isSelected ? Colors.white : Colors.black,
                   ),
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverdueChoresUI(List<Map<String, dynamic>> chores) {
+    final overdue = _getOverdueChores(chores);
+
+    if (overdue.isEmpty) {
+      return const SizedBox(); // hide section if none
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 16, top: 16),
+          child: Text(
+            _overdueChoresTitle,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: overdue.length,
+            itemBuilder: (context, index) {
+              final chore = overdue[index];
+              return Container(
+                width: 160,
+                margin: const EdgeInsets.only(left: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(_choreCardCornerRadius),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      chore['name'] as String,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      chore['assigned'] as String? ?? 'Unassigned',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChoreTile(Map<String, dynamic> chore) {
+    final dueDate = chore['dueDate'];
+    DateTime? date;
+
+    if (dueDate is Timestamp) {
+      date = dueDate.toDate();
+    } else if (dueDate is DateTime) {
+      date = dueDate;
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(_choreCardCornerRadius),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EditChoreScreen(
+              chore: chore,
+              onRumiTap: widget.onRumiTap,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(_choreCardCornerRadius),
+        ),
+        child: Row(
+          children: [
+            Checkbox(
+              value: chore['completed'] as bool? ?? false,
+              onChanged: (value) async {
+                if (value == null) return;
+
+                final updatedChore =
+                    Map<String, dynamic>.from(chore);
+                updatedChore.remove('id');
+                updatedChore['completed'] = value;
+
+                await _firestore.updateChore(chore['id'] as String, {
+                  ...updatedChore,
+                });
+
+                // Update assigned user's XP when chore completion changes
+                final assignedUserName = chore['assigned'] as String?;
+                if (assignedUserName != null &&
+                    assignedUserName.isNotEmpty) {
+                  final uid = await _firestore.getUserUidByDisplayName(
+                    assignedUserName,
+                    _householdId,
+                  );
+                  if (uid != null) {
+                    await _firestore.updateUserXpFromCompletedChores(
+                      uid,
+                      assignedUserName,
+                      _householdId,
+                    );
+                  }
+                }
+              },
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(chore['name'] as String? ?? 'Unnamed Chore'),
+                  Text('Assigned to: ${chore['assigned'] ?? 'Unassigned'}'),
+                  Text('XP: ${chore['xp'] ?? 0}'),
+                  Text(
+                    date == null ? '' : DateFormat('MMM d').format(date),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.black),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete chore?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(context, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await _firestore.deleteChore(
+                      chore['id'] as String);
+                }
+              },
+            ),
+          ],
         ),
       ),
     );

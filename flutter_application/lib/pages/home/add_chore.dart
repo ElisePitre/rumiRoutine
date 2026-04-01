@@ -19,6 +19,26 @@ class AddChoreScreen extends StatefulWidget {
 }
 
 class _AddChoreScreenState extends State<AddChoreScreen> {
+  // ==================== Constants ====================
+  static const double _streak_icon_size = 35;
+  static const double _back_icon_size = 24;
+  static const double _rumi_image_size = 90;
+  static const double _input_border_radius = 12;
+  static const double _button_height = 54;
+  static const double _button_border_radius = 30;
+  static const double _header_padding_left = 25;
+  static const double _header_padding_right = 18;
+  static const double _header_font_size = 36;
+  static const double _hint_font_size = 13;
+  static const double _input_font_size = 14;
+  static const double _streak_font_size = 16;
+  static const double _sizedbox_width_small = 4;
+  static const double _sizedbox_height_small = 6;
+  static const double _content_padding_horizontal = 14;
+  static const double _content_padding_vertical = 12;
+  static const List<int> xpOptions = [15, 25, 50];
+
+  // ==================== Fields ====================
   final formKey = GlobalKey<FormState>();
   final _firestoreService = FirestoreService();
 
@@ -29,8 +49,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
   String? selectedRoommate;
   int?    selectedXp;
 
-  static const List<int> xpOptions = [15, 25, 50];
-
+  // ==================== Getters ====================
   List<String> get roommates => UserProfileStore.householdMembers.value;
 
   @override
@@ -91,14 +110,14 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                buildTopIconsUI(),
+                _buildTopIconsUI(),
 
                 const Padding(
-                  padding: EdgeInsets.only(left: 25, right: 18, bottom: 12),
+                  padding: EdgeInsets.only(left: _header_padding_left, right: _header_padding_right, bottom: 12),
                   child: Text(
                     'Add Chore',
                     style: TextStyle(
-                      fontSize: 36,
+                      fontSize: _header_font_size,
                       fontWeight: FontWeight.w900,
                       color: Colors.black,
                       letterSpacing: -0.5,
@@ -112,14 +131,14 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        buildTextField(
+                        _buildTextField(
                           controller: titleController,
                           hint: '*Title',
                           validator: (v) =>
                               v == null || v.isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 10),
-                        buildTextField(
+                        _buildTextField(
                           controller: dueDateController,
                           hint: '*Due Date',
                           readOnly: true,
@@ -128,9 +147,9 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                               v == null || v.isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 10),
-                        buildXpDropdown(),
+                        _buildXpDropdown(),
                         const SizedBox(height: 10),
-                        buildRoommateDropdown(),
+                        _buildRoommateDropdown(),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -142,14 +161,14 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 54,
+                    height: _button_height,
                     child: ElevatedButton(
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(_button_border_radius),
                         ),
                         elevation: 0,
                       ),
@@ -172,27 +191,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
     );
   }
 
-  Widget buildXpDropdown() {
-    return DropdownButtonFormField<int>(
-      value: selectedXp,
-      hint: Text('*XP Weight',
-          style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-      decoration: inputDecoration('').copyWith(hintText: null),
-      style: const TextStyle(fontSize: 14, color: Colors.black),
-      dropdownColor: Colors.white,
-      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-      items: xpOptions
-          .map((xp) => DropdownMenuItem(
-                value: xp,
-                child: Text('$xp XP'),
-              ))
-          .toList(),
-      onChanged: (val) => setState(() => selectedXp = val),
-      validator: (v) => v == null ? 'Required' : null,
-    );
-  }
-
-  Widget buildTopIconsUI() {
+  Widget _buildTopIconsUI() {
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 12),
       child: SizedBox(
@@ -213,23 +212,23 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                       children: [
                         const Icon(
                           Icons.local_fire_department,
-                          size: 35,
+                          size: _streak_icon_size,
                           color: Colors.orange,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: _sizedbox_width_small),
                         ValueListenableBuilder<int>(
                           valueListenable: StreakStore.count,
                           builder: (context, streak, _) => Text(
                             '$streak',
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: _streak_font_size,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: _sizedbox_height_small),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       tooltip: 'Back to home',
@@ -237,7 +236,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                       constraints: const BoxConstraints(),
                       icon: const Icon(
                         Icons.arrow_back,
-                        size: 24,
+                        size: _back_icon_size,
                         color: Colors.black,
                       ),
                     ),
@@ -258,8 +257,8 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                     valueListenable: RumiAccessoryStore.selectedAccessory,
                     builder: (context, _, __) => Image.asset(
                       RumiAccessoryStore.currentRumiImagePath,
-                      width: 90,
-                      height: 90,
+                      width: _rumi_image_size,
+                      height: _rumi_image_size,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -272,36 +271,36 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
     );
   }
 
-  InputDecoration inputDecoration(String hint) => InputDecoration(
+  InputDecoration _inputDecoration(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+        hintStyle: TextStyle(fontSize: _hint_font_size, color: Colors.grey[500]),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: _content_padding_horizontal, vertical: _content_padding_vertical),
         filled: true,
         fillColor: Colors.grey[100],
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_input_border_radius),
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_input_border_radius),
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_input_border_radius),
           borderSide: const BorderSide(color: Colors.black, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_input_border_radius),
           borderSide: const BorderSide(color: Colors.red),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_input_border_radius),
           borderSide: const BorderSide(color: Colors.red, width: 1.5),
         ),
       );
 
-  Widget buildTextField({
+  Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
     bool readOnly = false,
@@ -315,18 +314,18 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
       onTap: onTap,
       keyboardType: keyboardType,
       validator: validator,
-      style: const TextStyle(fontSize: 14, color: Colors.black),
-      decoration: inputDecoration(hint),
+      style: const TextStyle(fontSize: _input_font_size, color: Colors.black),
+      decoration: _inputDecoration(hint),
     );
   }
 
-  Widget buildRoommateDropdown() {
+  Widget _buildRoommateDropdown() {
     return DropdownButtonFormField<String>(
       value: selectedRoommate,
       hint: Text('*Roommate',
-          style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-      decoration: inputDecoration('').copyWith(hintText: null),
-      style: const TextStyle(fontSize: 14, color: Colors.black),
+          style: TextStyle(fontSize: _hint_font_size, color: Colors.grey[500])),
+      decoration: _inputDecoration('').copyWith(hintText: null),
+      style: const TextStyle(fontSize: _input_font_size, color: Colors.black),
       dropdownColor: Colors.white,
       icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black),
       items: roommates
@@ -337,31 +336,23 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
     );
   }
 
-  Widget buildToggleButton({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 48,
-        decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.black, width: 1.5),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: isActive ? Colors.white : Colors.black,
-          ),
-        ),
-      ),
+  Widget _buildXpDropdown() {
+    return DropdownButtonFormField<int>(
+      value: selectedXp,
+      hint: Text('*XP Weight',
+          style: TextStyle(fontSize: _hint_font_size, color: Colors.grey[500])),
+      decoration: _inputDecoration('').copyWith(hintText: null),
+      style: const TextStyle(fontSize: _input_font_size, color: Colors.black),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black),
+      items: xpOptions
+          .map((xp) => DropdownMenuItem(
+                value: xp,
+                child: Text('$xp XP'),
+              ))
+          .toList(),
+      onChanged: (val) => setState(() => selectedXp = val),
+      validator: (v) => v == null ? 'Required' : null,
     );
   }
 }
