@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/rumi_emotion_store.dart';
 import '../../shared/user_profile_store.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/firestore_service.dart';
@@ -22,7 +24,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
-  late final List<TextEditingController> _memberControllers;
+  List<TextEditingController> _memberControllers = [];
   String? _householdId;
 
   bool _isEditingName = false;
@@ -36,13 +38,22 @@ class _ProfilePageState extends State<ProfilePage> {
     _memberControllers = UserProfileStore.householdMembers.value
         .map((member) => TextEditingController(text: member))
         .toList();
-    FirestoreService().getCurrentHouseholdId(FirebaseAuth.instance.currentUser!.uid).then((householdId) {
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    FirestoreService().getCurrentHouseholdId(currentUser.uid).then((householdId) {
+      if (!mounted) return;
       setState(() {
         _householdId = householdId;
       });
+
       UserProfileStore.fetchAndSetHouseholdMembers(householdId).then((_) {
+        if (!mounted) return;
+        for (final controller in _memberControllers) {
+          controller.dispose();
+        }
         setState(() {
-        // Rebuild controllers with the latest data
           _memberControllers = UserProfileStore.householdMembers.value
             .map((member) => TextEditingController(text: member))
             .toList();
@@ -174,15 +185,20 @@ class _ProfilePageState extends State<ProfilePage> {
                             onPressed: widget.onRumiTap,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: ValueListenableBuilder<String?>(
-                              valueListenable:
-                                  RumiAccessoryStore.selectedAccessory,
-                              builder: (context, _, __) => Image.asset(
-                                RumiAccessoryStore.currentRumiImagePath,
-                                width: 112,
-                                height: 112,
-                                fit: BoxFit.contain,
-                              ),
+                            icon: ValueListenableBuilder<String>(
+                              valueListenable: RumiEmotionStore.emotion,
+                              builder: (context, emotion, _) =>
+                                  ValueListenableBuilder<String?>(
+                                    valueListenable:
+                                        RumiAccessoryStore.selectedAccessory,
+                                    builder: (context, _, __) => Image.asset(
+                                      RumiAccessoryStore
+                                          .currentRumiImagePathForEmotion(emotion),
+                                      width: 112,
+                                      height: 112,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
                             ),
                           ),
                         ),
@@ -323,21 +339,45 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     Padding(
-                      //final householdId = await FirestoreService().getCurrentHouseholdId(uid);
                       padding: const EdgeInsets.fromLTRB(18, 6, 18, 12),
-                      child: TextField(
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          labelText: _householdId, // Floating label
-                          //hintText: 'e.g., John Doe', // Hint text inside the field
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                              color: Colors.black,
-                              width: 1.8,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: inputBackground,
+                          border: Border.all(color: panelBorderColor, width: 1.2),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                _householdId ?? 'Unavailable',
+                                style: TextStyle(color: panelText, fontSize: 16),
+                              ),
                             ),
-                          ), //circular borderwith radius 24 and black border color
-                      ),
+                            IconButton(
+                              onPressed: () {
+                                if (_householdId != null && _householdId!.isNotEmpty) {
+                                  Clipboard.setData(ClipboardData(text: _householdId!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Household code copied!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.copy, color: Colors.black),
+                              tooltip: 'Copy code',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
@@ -411,15 +451,37 @@ class _ProfilePageState extends State<ProfilePage> {
                                 minimumSize: const Size(0, 45),
                               ),
                               onPressed: () async {
-                                // Implement leave household functionality
-                                
-                                final user = FirebaseAuth.instance.currentUser;
-                                if (user != null) {
-                                  final uid = user.uid;
-                                  final householdId = await FirestoreService().getCurrentHouseholdId(uid);
-                                  await FirestoreService().removeMemberFromHousehold(householdId, uid);
-                                  await FirebaseAuth.instance.signOut();
-                                  widget.onLogout();
+                                // Show confirmation dialog
+                                final confirm = await showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Leave Household?'),
+                                    content: const Text(
+                                      'Are you sure you want to leave the household? Doing so will delete your account!',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Yes'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                // Only proceed if user confirmed
+                                if (confirm == true) {
+                                  final user = FirebaseAuth.instance.currentUser;
+                                  if (user != null) {
+                                    final uid = user.uid;
+                                    final householdId = await FirestoreService().getCurrentHouseholdId(uid);
+                                    await FirestoreService().removeMemberFromHousehold(householdId, uid);
+                                    await FirebaseAuth.instance.signOut();
+                                    widget.onLogout();
+                                  }
                                 }
                               },
                               child: const Text('Leave household'),

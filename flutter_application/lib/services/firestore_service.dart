@@ -27,7 +27,7 @@ class FirestoreService {
 
   Future<String> login(String email, String password) async {
     try {
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password
       );
@@ -42,6 +42,41 @@ class FirestoreService {
       }
     }
     return 'Error';
+  }
+
+  Stream<Map<String, dynamic>?> streamUserProfile(String uid) {
+    return _db.collection('users').doc(uid).snapshots().map((snapshot) {
+      return snapshot.data();
+    });
+  }
+
+  Stream<Map<String, dynamic>?> streamHousehold(String householdId) {
+    return _db.collection('household').doc(householdId).snapshots().map((snapshot) {
+      return snapshot.data();
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> streamUsersByHousehold(String householdId) {
+    return _db
+        .collection('users')
+        .where('householdId', isEqualTo: householdId)
+        .snapshots()
+        .map((snapshot) {
+      final users = snapshot.docs
+          .map((doc) => {
+                'id': doc.id,
+                ...doc.data(),
+              })
+          .toList();
+
+      users.sort((a, b) {
+        final aXp = (a['xp'] as num?)?.toInt() ?? 0;
+        final bXp = (b['xp'] as num?)?.toInt() ?? 0;
+        return bXp.compareTo(aXp);
+      });
+
+      return users;
+    });
   }
 
   // for households
@@ -139,6 +174,136 @@ class FirestoreService {
 
   Future<void> markChoreComplete(String choreId) async {
     await _db.collection('chores').doc(choreId).update({'completed': true});
+  }
+
+  // Helper: count overdue incomplete chores
+  int countOverdueChores(List<Map<String, dynamic>> chores) {
+    final now = DateTime.now();
+    return chores
+        .where((c) => !c['completed'] && (c['dueDate'] as DateTime).isBefore(now))
+        .length;
+  }
+
+  // Helper: compute household XP including completed chore XP
+  int computeHouseholdXpWithChores(
+    List<Map<String, dynamic>> users,
+    List<Map<String, dynamic>> chores,
+  ) {
+    final completedChoresXp = chores
+        .where((chore) => chore['completed'] == true)
+        .fold<int>(0, (sum, chore) => sum + ((chore['xp'] as num?)?.toInt() ?? 0));
+    return completedChoresXp;
+  }
+
+  // Update household streak with date tracking
+  Future<void> updateHouseholdStreakIfNeeded(
+    String householdId,
+    List<Map<String, dynamic>> chores,
+  ) async {
+    final householdDoc = await _db.collection('household').doc(householdId).get();
+    final data = householdDoc.data() ?? <String, dynamic>{};
+    final lastStreakUpdate =
+        (data['lastStreakUpdate'] as Timestamp?)?.toDate() ?? DateTime(2000);
+    final today = DateTime.now();
+
+    // Check if we already updated today
+    final isSameDay = lastStreakUpdate.year == today.year &&
+        lastStreakUpdate.month == today.month &&
+        lastStreakUpdate.day == today.day;
+
+    if (isSameDay) return; // Already updated today
+
+    // Only increment if no overdue chores
+    final hasOverdue = chores.any((c) =>
+        !c['completed'] && (c['dueDate'] as DateTime).isBefore(today));
+
+    if (!hasOverdue) {
+      final currentStreak = (data['streak'] as num?)?.toInt() ?? 0;
+      await _db.collection('household').doc(householdId).update({
+        'streak': currentStreak + 1,
+        'lastStreakUpdate': Timestamp.now(),
+      });
+    }
+  }
+
+  int computeUserXpFromCompletedChores(
+    String assignedUserName,
+    List<Map<String, dynamic>> chores,
+  ) {
+    return chores
+        .where((chore) =>
+            chore['completed'] == true &&
+            (chore['assigned'] ?? '').toString() == assignedUserName)
+        .fold<int>(0, (sum, chore) => sum + ((chore['xp'] as num?)?.toInt() ?? 0));
+  }
+
+  Future<void> updateUserXpFromCompletedChores(
+    String uid,
+    String displayName,
+    String householdId,
+  ) async {
+    final choresSnapshot = await _db
+        .collection('chores')
+        .where('householdId', isEqualTo: householdId)
+        .get();
+
+    final chores = choresSnapshot.docs
+        .map((doc) => doc.data())
+        .toList();
+
+    final userXp = computeUserXpFromCompletedChores(displayName, chores);
+    await _db.collection('users').doc(uid).update({'xp': userXp});
+  }
+
+  Future<String?> getUserUidByDisplayName(
+    String displayName,
+    String householdId,
+  ) async {
+    final usersSnapshot = await _db
+        .collection('users')
+        .where('householdId', isEqualTo: householdId)
+        .where('displayName', isEqualTo: displayName)
+        .limit(1)
+        .get();
+
+    if (usersSnapshot.docs.isEmpty) {
+      return null;
+    }
+
+    return usersSnapshot.docs.first.id;
+  }
+
+  Future<void> syncHouseholdUserXpFromCompletedChores(
+    List<Map<String, dynamic>> users,
+    List<Map<String, dynamic>> chores,
+  ) async {
+    final xpByName = <String, int>{};
+
+    for (final chore in chores) {
+      if (chore['completed'] != true) continue;
+      final assigned = (chore['assigned'] ?? '').toString();
+      if (assigned.isEmpty) continue;
+      final xp = (chore['xp'] as num?)?.toInt() ?? 0;
+      xpByName[assigned] = (xpByName[assigned] ?? 0) + xp;
+    }
+
+    final batch = _db.batch();
+    var hasUpdates = false;
+    for (final user in users) {
+      final uid = (user['id'] ?? '').toString();
+      if (uid.isEmpty) continue;
+      final name = (user['displayName'] ?? '').toString();
+      final computedXp = xpByName[name] ?? 0;
+      final currentXp = (user['xp'] as num?)?.toInt() ?? 0;
+      if (currentXp != computedXp) {
+        batch.update(_db.collection('users').doc(uid), {'xp': computedXp});
+        hasUpdates = true;
+      }
+    }
+
+    if (hasUpdates) {
+      await batch.commit();
+    }
   }
 
 }

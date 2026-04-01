@@ -28,8 +28,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
 
   String? selectedRoommate;
   int?    selectedXp;
-  bool isRecurring = false;
-  bool isRotation  = false;
 
   static const List<int> xpOptions = [15, 25, 50];
 
@@ -74,8 +72,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
       'xp':        selectedXp ?? 0,
       'completed': false,
       'dueDate':   DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
-      'recurring': isRecurring,
-      'rotation':  isRotation,
       'householdId': widget.householdId, 
     };
 
@@ -135,29 +131,6 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
                         buildXpDropdown(),
                         const SizedBox(height: 10),
                         buildRoommateDropdown(),
-                        const SizedBox(height: 16),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: buildToggleButton(
-                                label: 'Recurring?',
-                                isActive: isRecurring,
-                                onTap: () => setState(
-                                    () => isRecurring = !isRecurring),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: buildToggleButton(
-                                label: 'Rotation?',
-                                isActive: isRotation,
-                                onTap: () =>
-                                    setState(() => isRotation = !isRotation),
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 24),
                       ],
                     ),

@@ -19,6 +19,23 @@ class _LoginPageState extends State<LoginPage> {
   String confirmPassword = '';
   String householdCode = '';
   //String uid = 'uid';
+
+  Future<void> _showErrorDialog(String title, String message) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,7 +108,24 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             onPressed: () async {
-                              await FirestoreService().login(email, password);
+                              final trimmedEmail = email.trim();
+                              final trimmedPassword = password.trim();
+
+                              if (trimmedEmail.isEmpty || trimmedPassword.isEmpty) {
+                                await _showErrorDialog(
+                                  'Missing Fields',
+                                  'Please enter both email and password.',
+                                );
+                                return;
+                              }
+
+                              final result =
+                                  await FirestoreService().login(trimmedEmail, trimmedPassword);
+                              if (result != 'OK') {
+                                await _showErrorDialog('Login Failed', result);
+                                return;
+                              }
+
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const AppShell(),

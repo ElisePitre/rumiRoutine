@@ -3,11 +3,12 @@ import '../home/add_chore.dart';
 import '../home/edit_chore.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
+import '../../shared/rumi_emotion_store.dart';
 import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 enum CategoryType {
     completed,  
@@ -26,20 +27,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _firestore = FirestoreService();
-  String? householdId;
   CategoryType? categoryType;
+  String _householdId = '';
 
   @override
   void initState() {
     super.initState();
 
-    final uid = FirebaseAuth.instance.currentUser!.uid; 
-    FirestoreService().getCurrentHouseholdId(uid).then((id) { 
-      setState(() { 
-        householdId = id; }); 
-        UserProfileStore.fetchAndSetHouseholdMembers(id); 
-      });
+    // TODO: just to temporarily set the user for tests, should be based on the user logged in instead
+    UserProfileStore.name.value;
+    _loadHouseholdId();
   }
+
+  Future<void> _loadHouseholdId() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final householdId = await _firestore.getCurrentHouseholdId(uid);
+    if (!mounted) return;
+
+    setState(() {
+      _householdId = householdId;
+    });
+  }
+
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
@@ -48,10 +59,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
         floatingActionButton: FloatingActionButton(
           onPressed: () {
+            if (_householdId.isEmpty) return;
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap, householdId: householdId!,),
+                builder: (context) => AddChoreScreen(
+                  onRumiTap: widget.onRumiTap,
+                  householdId: _householdId,
+                ),
               ),
             );
           },
@@ -80,21 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   List<Map<String, dynamic>> applyFilter(List<Map<String, dynamic>> chores) {
     final today = DateTime.now();
-    // when there is no filter, there is still a sorting applied where 
-    // completed chores go at the bottom
-    if (categoryType == null) {
-      final sorted = List<Map<String, dynamic>>.from(chores);
 
-      sorted.sort((a, b) {
-        final aCompleted = a['completed'] == true;
-        final bCompleted = b['completed'] == true;
-
-        if (aCompleted == bCompleted) return 0;
-        if (aCompleted) return 1;   
-        return -1;               
-      });
-      return sorted;
-    }
+    if (categoryType == null) return chores;
 
     if (categoryType == CategoryType.completed) {
       return chores.where((c) => c['completed'] == true).toList();
@@ -111,16 +113,54 @@ class _HomeScreenState extends State<HomeScreen> {
       ).toList();
     }
   }
-  // the design for the clickable chores
-  Widget buildChoreTile(Map<String, dynamic> chore) {
-    final dueDate = chore['dueDate'];
-      DateTime? date;
 
-      // converting the timestamp stored in firebase to Datetime for better formatting when displayed
+  List<Map<String, dynamic>> _sortChoresSmartly(
+    List<Map<String, dynamic>> chores,
+  ) {
+    // Sort so uncompleted chores come first (by date), then completed (by date)
+    final List<Map<String, dynamic>> uncompleted = [];
+    final List<Map<String, dynamic>> completed = [];
+
+    for (final chore in chores) {
+      if (chore['completed'] == true) {
+        completed.add(chore);
+      } else {
+        uncompleted.add(chore);
+      }
+    }
+
+    // Sort each group by date
+    uncompleted.sort((a, b) {
+      final aDate = (a['dueDate'] as DateTime?);
+      final bDate = (b['dueDate'] as DateTime?);
+
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+
+      return aDate.compareTo(bDate);
+    });
+
+    completed.sort((a, b) {
+      final aDate = (a['dueDate'] as DateTime?);
+      final bDate = (b['dueDate'] as DateTime?);
+
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+
+      return aDate.compareTo(bDate);
+    });
+
+    return [...uncompleted, ...completed];
+  }
+    Widget buildChoreTile(Map<String, dynamic> chore) {
+      final dueDate = chore['dueDate'];
+            DateTime? date;
+
       if (dueDate is Timestamp) {
         date = dueDate.toDate();
-      } 
-      else if (dueDate is DateTime) {
+      } else if (dueDate is DateTime) {
         date = dueDate;
       }
       return InkWell(
@@ -140,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[200], 
+            color: Colors.grey[200], // 👈 THIS is what you want
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -151,10 +191,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (value == null) return;
 
                   Future.microtask(() async {
+                    final updatedChore = Map<String, dynamic>.from(chore);
+                    updatedChore.remove('id');
+                    updatedChore['completed'] = value;
                     await _firestore.updateChore(chore['id'], {
-                      ...chore,
-                      'completed': value,
+                      ...updatedChore,
                     });
+
+                    // Update assigned user's XP when chore completion changes
+                    final assignedUserName = chore['assigned'] as String?;
+                    if (assignedUserName != null && assignedUserName.isNotEmpty) {
+                      final uid = await _firestore.getUserUidByDisplayName(
+                        assignedUserName,
+                        _householdId,
+                      );
+                      if (uid != null) {
+                        await _firestore.updateUserXpFromCompletedChores(
+                          uid,
+                          assignedUserName,
+                          _householdId,
+                        );
+                      }
+                    }
                   });
                 },
               ),
@@ -176,7 +234,6 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final confirm = await showDialog(
                   context: context,
-                  // confirmation of deletion
                   builder: (context) => AlertDialog(
                     title: const Text("Delete chore?"),
                     actions: [
@@ -264,11 +321,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getCategoryUI() {
-    if (householdId == null) {
+    if (_householdId.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+
     return StreamBuilder(
-      stream: _firestore.streamChores(householdId!),
+      stream: _firestore.streamChores(_householdId),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
@@ -278,6 +336,11 @@ class _HomeScreenState extends State<HomeScreen> {
         final firestoreChores = snapshot.data!;
 
         final filteredChores = applyFilter(firestoreChores);
+        
+        // Apply smart sorting when no category is selected
+        final displayChores = categoryType == null 
+          ? _sortChoresSmartly(filteredChores)
+          : filteredChores;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,9 +378,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredChores.length,
+              itemCount: displayChores.length,
               itemBuilder: (context, index) {
-                return buildChoreTile(filteredChores[index]);
+                return buildChoreTile(displayChores[index]);
               },
             ),
           ],
@@ -367,14 +430,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: widget.onRumiTap,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  icon: ValueListenableBuilder<String?>(
-                    valueListenable: RumiAccessoryStore.selectedAccessory,
-                    builder: (context, _, __) => Image.asset(
-                      RumiAccessoryStore.currentRumiImagePath,
-                      width: 112,
-                      height: 112,
-                      fit: BoxFit.contain,
-                    ),
+                  icon: ValueListenableBuilder<String>(
+                    valueListenable: RumiEmotionStore.emotion,
+                    builder: (context, emotion, _) =>
+                        ValueListenableBuilder<String?>(
+                          valueListenable: RumiAccessoryStore.selectedAccessory,
+                          builder: (context, _, __) => Image.asset(
+                            RumiAccessoryStore.currentRumiImagePathForEmotion(emotion),
+                            width: 112,
+                            height: 112,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                   ),
                 ),
               ),
@@ -430,9 +497,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getChoreListUI() {
+    if (_householdId.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder(
       //stream: _firestore.getChores(householdId),
-      stream: _firestore.streamChores(householdId!),
+      stream: _firestore.streamChores(_householdId),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
@@ -501,14 +572,17 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: Padding(
               padding: const EdgeInsets.only(
-                  top: 12, bottom: 12, left: 18, right: 18),
+                  top: 12, bottom: 12, left: 12, right: 12),
               child: Center(
                 child: Text(
                   txt,
-                  textAlign: TextAlign.left,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontSize: 13,
                     letterSpacing: 0.27,
                     color: isSelected
                         ? Colors.white

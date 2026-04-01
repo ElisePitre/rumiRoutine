@@ -25,8 +25,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
 
   String? selectedRoommate;
   int?    selectedXp;
-  bool isRecurring = false;
-  bool isRotation  = false;
   bool _isLoading  = false;
 
   static const List<int> xpOptions = [15, 25, 50];
@@ -39,8 +37,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
     final c = widget.chore;
 
     titleController       = TextEditingController(text: c?['name'] ?? '');
-    isRecurring           = c?['recurring'] ?? false;
-    isRotation            = c?['rotation']  ?? false;
 
     final existingXp = c?['xp'];
     if (existingXp != null && xpOptions.contains(existingXp)) {
@@ -112,8 +108,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
       'completed':   widget.chore?['completed'] ?? false,
       'dueDate':     DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
       'description': widget.chore?['description'] ?? '',
-      'recurring':   isRecurring,
-      'rotation':    isRotation,
     };
 
      try {
@@ -251,30 +245,6 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
                         buildXpDropdown(),
                         const SizedBox(height: 10),
                         buildRoommateDropdown(),
-                        const SizedBox(height: 16),
-
-                        // ── Recurring? / Rotation? toggles ─────────
-                        Row(
-                          children: [
-                            Expanded(
-                              child: buildToggleButton(
-                                label: 'Recurring?',
-                                isActive: isRecurring,
-                                onTap: () => setState(
-                                    () => isRecurring = !isRecurring),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: buildToggleButton(
-                                label: 'Rotation?',
-                                isActive: isRotation,
-                                onTap: () =>
-                                    setState(() => isRotation = !isRotation),
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 24),
                       ],
                     ),
