@@ -97,17 +97,29 @@ class FirestoreService {
       .where('householdId', isEqualTo: householdId)
       .snapshots()
       .map((snapshot) {
-        return snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            ...data,
-            'dueDate': (data['dueDate'] as Timestamp).toDate(),
-          };
-        }).toList();
-      });
-  } 
+      final chores = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
 
+        return {
+          'id': doc.id,
+          ...data,
+          'dueDate': (data['dueDate'] as Timestamp?)?.toDate(),
+        };
+      }).toList();
+
+      chores.sort((a, b) {
+        final aDate = a['dueDate'] as DateTime?;
+        final bDate = b['dueDate'] as DateTime?;
+
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1; 
+        if (bDate == null) return -1;
+
+        return aDate.compareTo(bDate); 
+      });
+      return chores;
+    });
+  } 
   Future<void> updateChore(String choreId, Map<String, dynamic> updated) async {
     final data = Map<String, dynamic>.from(updated);
 

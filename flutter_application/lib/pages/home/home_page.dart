@@ -6,6 +6,7 @@ import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 enum CategoryType {
     completed,  
@@ -93,6 +94,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
     Widget buildChoreTile(Map<String, dynamic> chore) {
+      final dueDate = chore['dueDate'];
+            DateTime? date;
+
+      if (dueDate is Timestamp) {
+        date = dueDate.toDate();
+      } else if (dueDate is DateTime) {
+        date = dueDate;
+      }
       return InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -135,6 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(chore['name']),
                   Text('Assigned to: ${chore['assigned']}'),
                   Text('XP: ${chore['xp']}'),
+                  Text(
+                    date == null ? '' : DateFormat('MMM d').format(date),
+                  ),
                 ],
               ),
             ),

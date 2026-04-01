@@ -13,10 +13,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String name = 'name';
-  String email = 'email';
-  String password = 'password';
-  String confirmPassword = 'confirmPassword';
+  String name = '';
+  String email = '';
+  String password = '';
+  String confirmPassword = '';
   String householdCode = '';
   //String uid = 'uid';
   @override
@@ -268,6 +268,23 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       onPressed: () async {
+                        if(name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+                              // show popup message
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Missing Fields'),
+                                  content: Text('Please fill in all fields'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
                         
                         if(householdCode.isEmpty) {
                           householdCode = await FirestoreService().createHousehold(name);
