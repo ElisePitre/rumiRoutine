@@ -4,6 +4,14 @@ RumiRoutine is a chore tracker with game-like features, designed to help young a
 
 We imagine roommates using RumiRoutine daily to check off chores, keep their streaks going, and earn rewards together. Like duolingo, you’ll earn XP, unlock achievements, and improve the mood of your shared character, Rumi, who reflects how your household is doing. Fun notifications, cosmetic rewards, and clear milestones help everyone feel like they’re making progress as a team. The app combines useful tools with simple game features to make chores less stressful and shared living more enjoyable. 
 
+## Try It Online
+
+If you’d like to see RumiRoutine in action right away, visit the deployed website:
+
+- [rumiroutine.netlify.app](https://rumiroutine.netlify.app)
+
+If you prefer, you can also run/deploy it locally by following the instructions below.
+
 ## Getting Started
 
 ### 1) Clone the repository
