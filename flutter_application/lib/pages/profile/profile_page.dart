@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../shared/streak_store.dart';
 import '../../shared/rumi_accessory_store.dart';
 import '../../shared/user_profile_store.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/firestore_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -32,6 +34,17 @@ class _ProfilePageState extends State<ProfilePage> {
     _memberControllers = UserProfileStore.householdMembers.value
         .map((member) => TextEditingController(text: member))
         .toList();
+
+    FirestoreService().getCurrentHouseholdId(FirebaseAuth.instance.currentUser!.uid).then((householdId) {
+      UserProfileStore.fetchAndSetHouseholdMembers(householdId).then((_) {
+        setState(() {
+        // Rebuild controllers with the latest data
+          _memberControllers = UserProfileStore.householdMembers.value
+            .map((member) => TextEditingController(text: member))
+            .toList();
+        });
+      });
+    });
   }
 
   @override
@@ -56,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     UserProfileStore.saveProfile(
       updatedName: _nameController.text.trim().isEmpty
-        ? UserProfileStore.defaultName
+        ? UserProfileStore.name.value   //??UserProfileStore.defaultName
           : _nameController.text.trim(),
       updatedEmail: _emailController.text.trim().isEmpty
           ? 'fakeEmail@gmail.com'
@@ -317,20 +330,31 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: SizedBox(
                         height: 168,
-                        child: ListView.separated(
-                          itemCount: _memberControllers.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            return TextFormField(
-                              controller: _memberControllers[index],
-                              readOnly: true,
-                              style: TextStyle(color: panelText),
-                              decoration: buildInputDecoration(
-                                label: '',
-                                hint: 'Household member',
-                                radius: 12,
-                              ),
-                            );
+                        child: ValueListenableBuilder<List<String>>(
+                          valueListenable: UserProfileStore.householdMembers,
+                          builder: (context, members, _) {
+                            return ListView.separated(
+                              itemCount: members.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                return TextFormField(
+                                  controller: TextEditingController(text: members[index]),
+                                      // child: ListView.separated(
+                                      //   itemCount: _memberControllers.length,
+                                      //   separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                      //   itemBuilder: (context, index) {
+                                      //     return TextFormField(
+                                      //       controller: _memberControllers[index],
+                                  readOnly: true,
+                                  style: TextStyle(color: panelText),
+                                  decoration: buildInputDecoration(
+                                    label: '',
+                                    hint: 'Household member',
+                                    radius: 12,
+                                  ),
+                                );
+                              },
+                            ); 
                           },
                         ),
                       ),
@@ -380,7 +404,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   foregroundColor: Colors.black,
                   fixedSize: const Size(100, 45),
                 ),
-                onPressed: widget.onLogout,
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  widget.onLogout();
+                },
                 child: const Text('Log out'),
               ),
               SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
@@ -391,6 +418,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+
 
 class NotificationsSwitch extends StatefulWidget {
   const NotificationsSwitch({super.key});
@@ -415,3 +443,4 @@ class _NotificationsSwitchState extends State<NotificationsSwitch> {
     );
   }
 }
+

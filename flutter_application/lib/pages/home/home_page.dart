@@ -7,6 +7,7 @@ import '../../shared/user_profile_store.dart';
 import '../../services/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum CategoryType {
     completed,  
@@ -25,14 +26,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _firestore = FirestoreService();
-  final String householdId = "test-household"; // TEMP
+  String? householdId;
   CategoryType? categoryType;
 
   @override
   void initState() {
     super.initState();
-    // gets the user's name for displaying 
-    UserProfileStore.name.value;
+
+    final uid = FirebaseAuth.instance.currentUser!.uid; 
+    FirestoreService().getCurrentHouseholdId(uid).then((id) { 
+      setState(() { 
+        householdId = id; }); 
+        UserProfileStore.fetchAndSetHouseholdMembers(id); 
+      });
   }
   Widget build(BuildContext context) {
     return Container(
@@ -45,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap),
+                builder: (context) => AddChoreScreen(onRumiTap: widget.onRumiTap, householdId: householdId!,),
               ),
             );
           },
@@ -258,8 +264,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget getCategoryUI() {
+    if (householdId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return StreamBuilder(
-      stream: _firestore.streamChores(householdId),
+      stream: _firestore.streamChores(householdId!),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
@@ -423,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget getChoreListUI() {
     return StreamBuilder(
       //stream: _firestore.getChores(householdId),
-      stream: _firestore.streamChores(householdId),
+      stream: _firestore.streamChores(householdId!),
       builder: (context, snapshot) {
 
         if (!snapshot.hasData) {
