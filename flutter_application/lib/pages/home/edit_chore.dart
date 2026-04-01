@@ -47,10 +47,15 @@ class _EditChoreScreenState extends State<EditChoreScreen> {
       selectedXp = existingXp as int;
     }
 
-    selectedRoommate = (c?['assigned'] != null &&
-            (c!['assigned'] as String).isNotEmpty)
-        ? c['assigned'] as String
-        : null;
+    final assigned = c?['assigned'];
+    
+    selectedRoommate =
+        (assigned != null &&
+        assigned is String &&
+        assigned.isNotEmpty &&
+        UserProfileStore.householdMembers.value.contains(assigned))
+            ? assigned
+            : null;
 
     final due = c?['dueDate'];
     if (due is DateTime) {

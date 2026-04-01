@@ -6,8 +6,13 @@ import '../../services/firestore_service.dart';
 
 class AddChoreScreen extends StatefulWidget {
   final VoidCallback? onRumiTap;
-
-  const AddChoreScreen({Key? key, this.onRumiTap}) : super(key: key);
+  final String householdId;
+  
+  const AddChoreScreen({
+    Key? key,
+    this.onRumiTap,
+    required this.householdId,
+  }) : super(key: key);
 
   @override
   State<AddChoreScreen> createState() => _AddChoreScreenState();
@@ -71,8 +76,7 @@ class _AddChoreScreenState extends State<AddChoreScreen> {
       'dueDate':   DateTime.tryParse(dueDateController.text) ?? DateTime.now(),
       'recurring': isRecurring,
       'rotation':  isRotation,
-      // TODO: change this value to be dynamic
-      'householdId': "test-household", 
+      'householdId': widget.householdId, 
     };
 
     await _firestoreService.addChore(newChore);  
