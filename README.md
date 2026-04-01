@@ -35,12 +35,12 @@ flutter pub get
 flutter run
 ```
 
+Tip: use a connected phone or emulator when running `flutter run`.
+
 ### NOTE: This command is a replacement option for flutter run and will automatically size the window to emulate a cellphone
 ```bash
 flutter run -d chrome --web-browser-flag="--window-size=390,844"
 ```
-
-Tip: use a connected phone or emulator when running `flutter run`.
 
 ## The team
 - Alina Ahmed
