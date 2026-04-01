@@ -49,4 +49,4 @@ flutter run -d chrome --web-browser-flag="--window-size=390,844"
 - Silvia Abdel Malek
 
 
-### PLEASE NOTE: All Rumi design artwork (In flutter_application\assets) is the creative work of Elise Pitre and not to be used for other purposes
+PLEASE NOTE: All Rumi design artwork (In flutter_application\assets) is the creative work of Elise Pitre and not to be used for other purposes
