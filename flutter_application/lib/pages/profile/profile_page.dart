@@ -330,20 +330,31 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: SizedBox(
                         height: 168,
-                        child: ListView.separated(
-                          itemCount: _memberControllers.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            return TextFormField(
-                              controller: _memberControllers[index],
-                              readOnly: true,
-                              style: TextStyle(color: panelText),
-                              decoration: buildInputDecoration(
-                                label: '',
-                                hint: 'Household member',
-                                radius: 12,
-                              ),
-                            );
+                        child: ValueListenableBuilder<List<String>>(
+                          valueListenable: UserProfileStore.householdMembers,
+                          builder: (context, members, _) {
+                            return ListView.separated(
+                              itemCount: members.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                return TextFormField(
+                                  controller: TextEditingController(text: members[index]),
+                                      // child: ListView.separated(
+                                      //   itemCount: _memberControllers.length,
+                                      //   separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                      //   itemBuilder: (context, index) {
+                                      //     return TextFormField(
+                                      //       controller: _memberControllers[index],
+                                  readOnly: true,
+                                  style: TextStyle(color: panelText),
+                                  decoration: buildInputDecoration(
+                                    label: '',
+                                    hint: 'Household member',
+                                    radius: 12,
+                                  ),
+                                );
+                              },
+                            ); 
                           },
                         ),
                       ),
