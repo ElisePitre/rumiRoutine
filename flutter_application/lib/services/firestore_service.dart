@@ -25,19 +25,23 @@ class FirestoreService {
     return userData.data() as Map<String, dynamic>;
   }
 
-  Future<void> login(String email, String password) async {
+  Future<String> login(String email, String password) async {
     try {
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password
       );
+      return 'OK';
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        print('No user found for that email.');
+        print('No user found for that email.'); //TODO: remove
+        return 'No user found for that email.';
       } else if (e.code == 'wrong-password') {
-        print('Wrong password provided for that user.');
+        print('Wrong password provided for that user.'); //TODO: remove
+        return 'Wrong password provided for that user.';
       }
     }
+    return 'Error';
   }
 
   // for households
@@ -50,7 +54,6 @@ class FirestoreService {
     List<dynamic> members = householdData['members'] ?? [];
     return members.cast<String>();
   }
-
   
   Future<String> createHousehold(String name) async {
     DocumentReference ref = await _db.collection('household').add({

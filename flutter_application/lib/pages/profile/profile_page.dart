@@ -23,6 +23,8 @@ class _ProfilePageState extends State<ProfilePage> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
   late final List<TextEditingController> _memberControllers;
+  String? _householdId;
+
   bool _isEditingName = false;
   bool _isEditingEmail = false;
 
@@ -34,8 +36,10 @@ class _ProfilePageState extends State<ProfilePage> {
     _memberControllers = UserProfileStore.householdMembers.value
         .map((member) => TextEditingController(text: member))
         .toList();
-
     FirestoreService().getCurrentHouseholdId(FirebaseAuth.instance.currentUser!.uid).then((householdId) {
+      setState(() {
+        _householdId = householdId;
+      });
       UserProfileStore.fetchAndSetHouseholdMembers(householdId).then((_) {
         setState(() {
         // Rebuild controllers with the latest data
@@ -92,6 +96,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final Color panelMutedText = Colors.grey.shade700;
     final Color inputBackground = Colors.white;
     final Color panelBorderColor = Colors.black;
+    
 
     InputDecoration buildInputDecoration({
       required String label,
@@ -308,6 +313,40 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
+                          'Household code',
+                          style: TextStyle(
+                            color: panelText,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      //final householdId = await FirestoreService().getCurrentHouseholdId(uid);
+                      padding: const EdgeInsets.fromLTRB(18, 6, 18, 12),
+                      child: TextField(
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: _householdId, // Floating label
+                          //hintText: 'e.g., John Doe', // Hint text inside the field
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(
+                              color: Colors.black,
+                              width: 1.8,
+                            ),
+                          ), //circular borderwith radius 24 and black border color
+                      ),
+                      ),
+                    ),
+
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
                           'Household members',
                           style: TextStyle(
                             color: panelText,
@@ -371,8 +410,17 @@ class _ProfilePageState extends State<ProfilePage> {
                                 side: const BorderSide(color: Colors.black),
                                 minimumSize: const Size(0, 45),
                               ),
-                              onPressed: () {
-                                // TODO: Implement leave household functionality
+                              onPressed: () async {
+                                // Implement leave household functionality
+                                
+                                final user = FirebaseAuth.instance.currentUser;
+                                if (user != null) {
+                                  final uid = user.uid;
+                                  final householdId = await FirestoreService().getCurrentHouseholdId(uid);
+                                  await FirestoreService().removeMemberFromHousehold(householdId, uid);
+                                  await FirebaseAuth.instance.signOut();
+                                  widget.onLogout();
+                                }
                               },
                               child: const Text('Leave household'),
                             ),
