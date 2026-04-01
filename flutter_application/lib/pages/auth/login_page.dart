@@ -23,125 +23,127 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Login here',
-                    textAlign: TextAlign.left,
-                    style: TextStyle(
-                      fontSize: 42, 
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black
-                    ),
-                  ),
-                  const Text(
-                    'Welcome back!',
-                    style: TextStyle(
-                      fontSize: 25, 
-                      //fontWeight: FontWeight.bold,
-                      color: Colors.grey
-                    ),
-                  ),
-                  Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 60, 4, 6),
-                  child:TextFormField(
-                    onChanged: (value) => email = value,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+        child: SingleChildScrollView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Login here',
+                      textAlign: TextAlign.left,
+                      style: TextStyle(
+                        fontSize: 42, 
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black
                       ),
                     ),
-                  ),
-                  ),
-                  Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 18),
-                  child: TextFormField(
-                    onChanged: (value) => password = value,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                    const Text(
+                      'Welcome back!',
+                      style: TextStyle(
+                        fontSize: 25, 
+                        //fontWeight: FontWeight.bold,
+                        color: Colors.grey
                       ),
                     ),
-                    obscureText: true,
-                  ),
-                  ),
-                  //SizedBox(
-                    //width: 15,
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            fixedSize: Size(100,45),
-                            textStyle: TextStyle(
-                              fontSize: 20,
-                            ),
-                          ),
-                          onPressed: () async {
-                            await FirestoreService().login(email, password);
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const AppShell(),
+                    Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 60, 4, 6),
+                    child:TextFormField(
+                      onChanged: (value) => email = value,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                    ),
+                    ),
+                    Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 18),
+                    child: TextFormField(
+                      onChanged: (value) => password = value,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      obscureText: true,
+                    ),
+                    ),
+                    //SizedBox(
+                      //width: 15,
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              fixedSize: Size(100,45),
+                              textStyle: TextStyle(
+                                fontSize: 20,
                               ),
-                            );
-                          },
-                          child: const Text('Login'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 100),
-                            child: RichText(
-                              textAlign: TextAlign.center,
-                              text: TextSpan(
-                                text: 'Don\'t have an account? \nSign up ',
-                                style: TextStyle(
-                                  color: Colors.grey,
+                            ),
+                            onPressed: () async {
+                              await FirestoreService().login(email, password);
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AppShell(),
                                 ),
-                                children: [
-                                  TextSpan(
-                                    text: 'here',
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                    ..onTap = () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => getSignUpUI(),
+                              );
+                            },
+                            child: const Text('Login'),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 100),
+                              child: RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  text: 'Don\'t have an account? \nSign up ',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: 'here',
+                                      style: TextStyle(
+                                        color: Colors.blue,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                      recognizer: TapGestureRecognizer()
+                                      ..onTap = () => Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => getSignUpUI(),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                // textAlign: TextAlign.center,
+                                // style: TextStyle(
+                                //   color: Colors.grey
+                                // ),
                               ),
-                              // textAlign: TextAlign.center,
-                              // style: TextStyle(
-                              //   color: Colors.grey
-                              // ),
                             ),
-                          ),
-                          
-                    ],
+                            
+                      ],
+                      ),
                     ),
-                  ),
-                  //),
+                    //),
 
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
+      )
     );
   }
   Widget getSignUpUI() {

@@ -41,9 +41,11 @@ class FirestoreService {
   }
 
   // for households
-  Future<List<String>> getHouseholdMembers(String uid) async {
-    DocumentSnapshot userData = await _db.collection('users').doc(uid).get();
-    String householdId = userData['householdId'];
+  Future<List<String>> getHouseholdMembers(String householdId) async {
+    //print('Fetching household members for user: $uid');
+    //DocumentSnapshot userData = await _db.collection('users').doc(uid).get();
+    //String householdId = userData['householdId'];
+    //print('User $uid belongs to household: $householdId');
     DocumentSnapshot householdData = await _db.collection('household').doc(householdId).get();
     List<dynamic> members = householdData['members'] ?? [];
     return members.cast<String>();
