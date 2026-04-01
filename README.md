@@ -42,7 +42,7 @@ Tip: use a connected phone or emulator when running `flutter run`.
 flutter run -d chrome --web-browser-flag="--window-size=390,844"
 ```
 
-## The team
+## The Team
 - Alina Ahmed
 - Caitlin Christopoulos
 - Elise Pitre
