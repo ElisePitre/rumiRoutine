@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isMemberOfHousehold(householdId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && currentUserDoc().data.householdId == householdId;
+    }
+
+    match /users/{uid} {
+      allow create: if isOwner(uid);
+      allow read: if isOwner(uid) || isMemberOfHousehold(resource.data.householdId);
+      allow update: if isOwner(uid) || isMemberOfHousehold(resource.data.householdId);
+      allow delete: if isOwner(uid);
+    }
+
+    match /household/{householdId} {
+      allow create: if signedIn();
+      allow read, update, delete: if isMemberOfHousehold(householdId);
+    }
+
+    match /chores/{choreId} {
+      allow create: if isMemberOfHousehold(request.resource.data.householdId);
+      allow read, update, delete: if isMemberOfHousehold(resource.data.householdId);
+    }
+  }
+}

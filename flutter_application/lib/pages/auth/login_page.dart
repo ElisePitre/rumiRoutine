@@ -302,38 +302,62 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       onPressed: () async {
-                        if(name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-                              // show popup message
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text('Missing Fields'),
-                                  content: Text('Please fill in all fields'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.of(context).pop(),
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              return;
-                            }
-                        
-                        if(householdCode.isEmpty) {
-                          householdCode = await FirestoreService().createHousehold(name);
-                          //await FirestoreService().addMemberToHousehold(newHouseholdId, FirebaseAuth.instance.currentUser!.uid);
+                        try {
+                          if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+                            await _showErrorDialog(
+                              'Missing Fields',
+                              'Please fill in all fields.',
+                            );
+                            return;
+                          }
+
+                          if (password != confirmPassword) {
+                            await _showErrorDialog(
+                              'Password Mismatch',
+                              'Passwords do not match.',
+                            );
+                            return;
+                          }
+
+                          final firestore = FirestoreService();
+                          final joiningExistingHousehold = householdCode.isNotEmpty;
+
+                          await firestore.signUp(
+                            email,
+                            password,
+                            name,
+                            joiningExistingHousehold ? householdCode : '',
+                          );
+
+                          final currentUser = FirebaseAuth.instance.currentUser;
+                          if (currentUser == null) {
+                            throw StateError('Signed in user was not available after sign up.');
+                          }
+
+                          if (!joiningExistingHousehold) {
+                            householdCode = await firestore.createHousehold(name);
+                            await firestore.updateUserHouseholdId(
+                              currentUser.uid,
+                              householdCode,
+                            );
+                          }
+
+                          await firestore.addMemberToHousehold(
+                            householdCode,
+                            currentUser.uid,
+                          );
+
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AppShell(),
+                            ),
+                          );
+                        } catch (e) {
+                          await _showErrorDialog(
+                            'Sign Up Failed',
+                            e.toString(),
+                          );
                         }
-                        await FirestoreService().signUp(email, password, name, householdCode);
-                        if (householdCode.isNotEmpty) {
-                          await FirestoreService().addMemberToHousehold(householdCode, FirebaseAuth.instance.currentUser!.uid);
-                        }
-                        
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AppShell(), //TODO: where to go after sign up??
-                          ),
-                        );
                       },
                       child: const Text('Sign Up'),
                       ),

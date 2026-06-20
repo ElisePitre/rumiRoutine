@@ -20,6 +20,12 @@ class FirestoreService {
     });
   }
 
+  Future<void> updateUserHouseholdId(String uid, String householdId) {
+    return _db.collection('users').doc(uid).update({
+      'householdId': householdId,
+    });
+  }
+
   Future<Map<String, dynamic>> getUserProfile(String uid) async {
     final userData = await _db.collection('users').doc(uid).get();
     return userData.data() as Map<String, dynamic>;
@@ -51,13 +57,27 @@ class FirestoreService {
       );
       return 'OK';
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        return 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        return 'Wrong password provided for that user.';
+      switch (e.code) {
+        case 'user-not-found':
+          return 'No user found for that email.';
+        case 'wrong-password':
+        case 'invalid-credential':
+        case 'invalid-login-credentials':
+          return 'Invalid email or password.';
+        case 'user-disabled':
+          return 'This account has been disabled.';
+        case 'operation-not-allowed':
+          return 'Email/password sign-in is not enabled in Firebase.';
+        case 'too-many-requests':
+          return 'Too many login attempts. Please try again later.';
+        case 'network-request-failed':
+          return 'Network error. Check your connection and try again.';
+        default:
+          return e.message ?? 'Login failed (${e.code}).';
       }
+    } catch (e) {
+      return 'Login failed: $e';
     }
-    return 'Error';
   }
 
   // ==================== Real-time Streams ====================
